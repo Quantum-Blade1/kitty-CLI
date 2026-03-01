@@ -1,0 +1,5 @@
+typer
+rich
+google-generativeai
+python-dotenv
+pydantic
