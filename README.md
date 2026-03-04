@@ -16,4 +16,4 @@ KittyCode is a high-EQ autonomous personal AI agent built with a "Ruby Noir" aes
 4. Set your API Key: Create a `.env` file in `~/.kittycode/` with `BYTEZ_API_KEY=your_key_here`.
 5. Start Kitty: Type `kitty` in your terminal!
 
-Created with by Krish.
+Created by Krish.
