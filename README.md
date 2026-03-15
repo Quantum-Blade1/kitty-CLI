@@ -1,6 +1,6 @@
 # ฅ^•ﻌ•^ฅ KittyCode CLI
 
-KittyCode is a high-EQ autonomous personal AI agent built with a "Ruby Noir" aesthetic. She is designed to be your co-pilot in coding and your companion in life.
+KittyCode is a high-EQ) autonomous personal AI agent built with a "Ruby Noir" aesthetic. She is designed to be your co-pilot in coding and your companion in life.
 
 ## Features
 - **High-EQ Emotional Support:** Kitty matches your mood and provides warm, personalized support.
