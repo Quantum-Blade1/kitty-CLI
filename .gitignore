@@ -1,0 +1,14 @@
+.env
+memory.json
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.kittycode/
+.pytest_cache/
+.kitty/
+*.log
+*.tmp
+memory_export*.json
+stage4_memory_export.json
