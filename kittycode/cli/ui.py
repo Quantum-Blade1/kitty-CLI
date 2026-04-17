@@ -1,0 +1,106 @@
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+from rich.theme import Theme
+from rich.console import Console, Group
+from rich.markdown import Markdown
+from kittycode.config.settings import MAX_WIDTH
+
+# --- Themes Dictionary ---
+THEMES = {
+    "catgirl": {
+        "kruby": "bold #E91E63",        # Ruby Pinkish-Red (Kitty's soul)
+        "kred": "bold #FF5252",         # Bright Ruby Red
+        "ksurface": "#130D0E",          # Near-black Wine
+        "kmuted": "#757575",            # Muted Gray
+        "ktext": "#F5F5F5",             # Off-White
+        "kwhite": "bold #FFFFFF",       # Pure White
+        "kborder": "#3D1B21",           # Deep Wine Border
+        "kgreen": "bold #39FF14",       # Code Green
+        "kbg": "on #130D0E"             # Background fill
+    },
+    "ps1": {
+        "kruby": "bold #00FFFF",        # Neon Cyan
+        "kred": "bold #FFFF00",         # Vibrant Yellow
+        "ksurface": "#000000",          # Pure Black
+        "kmuted": "#808080",            # Scanline Gray
+        "ktext": "#C0C0C0",             # PS1 BIOS Gray
+        "kwhite": "bold #FFFFFF",       # Pure White
+        "kborder": "#0000FF",           # Memory Card Blue
+        "kgreen": "bold #39FF14",       # Code Green
+        "kbg": "on #000000"             # Pure Black fill
+    },
+    "cyberpunk": {
+        "kruby": "bold #FCEE0A",        # Night City Yellow
+        "kred": "bold #FF003C",         # Arasaka Red
+        "ksurface": "#0A0A0A",          # Asphalt Black
+        "kmuted": "#505050",            # Chrome Gray
+        "ktext": "#00FFFF",             # Neon Cyan Text
+        "kwhite": "bold #FFFFFF",       # Pure White
+        "kborder": "#00FFFF",           # Neon Cyan Border
+        "kgreen": "bold #39FF14",       # Code Green
+        "kbg": "on #0A0A0A"             # Asphalt fill
+    },
+    "matrix": {
+        "kruby": "bold #00FF41",        # Matrix Green
+        "kred": "bold #008F11",         # Darker Matrix Green
+        "ksurface": "#000000",          # Pure Black
+        "kmuted": "#003B00",            # Faded Green
+        "ktext": "#00FF41",             # Hacker Green Text
+        "kwhite": "bold #FFFFFF",       # Pure White
+        "kborder": "#008F11",           # Dark Green Border
+        "kgreen": "bold #39FF14",       # Code Green
+        "kbg": "on #000000"             # Pure Black fill
+    },
+    "dracula": {
+        "kruby": "bold #FF79C6",        # Dracula Pink
+        "kred": "bold #FF5555",         # Dracula Red
+        "ksurface": "#282A36",          # Dracula Background
+        "kmuted": "#6272A4",            # Dracula Comment
+        "ktext": "#F8F8F2",             # Dracula Foreground
+        "kwhite": "bold #FFFFFF",       # Pure White
+        "kborder": "#BD93F9",           # Dracula Purple
+        "kgreen": "bold #50FA7B",       # Code Green
+        "kbg": "on #282A36"             # Dracula fill
+    }
+}
+
+kitty_theme = Theme(THEMES["catgirl"])
+
+console = Console(theme=kitty_theme)
+
+def setup_theme(theme_name: str):
+    if theme_name in THEMES:
+        console.push_theme(Theme(THEMES[theme_name]))
+
+def get_header(current_mode):
+    grid = Table.grid(expand=False, padding=(0, 4))
+    grid.add_column(justify="left")
+    grid.add_column(justify="left")
+    logo = Text("^^ KittyCode", style="kruby")
+    modes = ["Chat", "Code", "About"]
+    pills = [f"[kred] {m}[/kred]" if m == current_mode else f"[kmuted]{m}[/kmuted]" for m in modes]
+    grid.add_row(logo, Text.from_markup("   ".join(pills)))
+    return Panel(grid, border_style="kborder", padding=(0, 1), expand=False)
+
+def get_footer(mem_count, current_mode, user_name, project_root):
+    grid = Table.grid(expand=False, padding=(0, 4))
+    grid.add_column(justify="left")
+    grid.add_column(justify="left")
+    status = Text.from_markup(f"[kmuted]Link: {mem_count} | Mode: {current_mode} | User: {user_name} | Scope: {project_root}[/kmuted]")
+    hints = Text.from_markup("[kmuted]Type 'shift' or mode name to switch[/kmuted]")
+    grid.add_row(status, hints)
+    return grid
+
+def render_bubble(role, content, user_name="User", logs=None):
+    if role == "kitty":
+        renderables = [Markdown(content)]
+        if logs:
+            log_text = Text("\n^^ Work Log:", style="kruby")
+            for r in logs: log_text.append(f"\n  {r}", style="ktext")
+            renderables.append(log_text)
+        return Panel(Group(*renderables), title="[kruby][/kruby]", title_align="left", style="kbg", border_style="kborder", width=MAX_WIDTH, padding=(0, 1), expand=False)
+    else:
+        display_content = content.ljust(15) if len(content) < 15 else content
+        return Panel(Text(display_content, style="ktext"), border_style="kruby", padding=(0, 1), subtitle=Text(user_name, style="kruby"), subtitle_align="right", expand=False)
+
