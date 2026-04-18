@@ -65,6 +65,51 @@ Optional:
 - `kittycode/tools` : tool registry and execution engine
 - `kittycode/security` : path sandbox validator
 
+```mermaid
+graph TD
+    CLI["kittycode/cli/app.py\n(Typer CLI + REPL)"]
+    AGENT["kittycode/agent/kitty.py\n(KittyAgent)"]
+    PLANNER["agent/planner.py\n(Scope → Queue)"]
+    DEBATE["agent/debate.py\n(Builder→Critic loop)"]
+    LLM["models/llm.py\n(LLMClient)"]
+    ROUTER["models/router.py\n(ModelRouter)"]
+    PROVIDERS["models/providers.py\n(Bytez / Gemini / OpenRouter)"]
+    HEALTH["models/health.py\n(ModelHealthTracker)"]
+    MEMORY["memory/manager.py\n(MemoryManager)"]
+    ENGINE["tools/engine.py\n(ToolEngine)"]
+    CRITIC["core/critic.py\n(SafetyCritic)"]
+    SANDBOX["security/sandbox.py\n(SandboxValidator)"]
+    POLICY["security/policy.py\n(cmd allowlist)"]
+    STATS["utils/stats.py\n(StatsManager)"]
+    TELEMETRY["telemetry/logger.py\n(StructuredLogger)"]
+
+    CLI --> AGENT
+    AGENT --> PLANNER
+    AGENT --> DEBATE
+    AGENT --> LLM
+    LLM --> ROUTER
+    LLM --> ENGINE
+    ROUTER --> PROVIDERS
+    ROUTER --> HEALTH
+    DEBATE --> ROUTER
+    DEBATE --> ENGINE
+    ENGINE --> CRITIC
+    ENGINE --> SANDBOX
+    CRITIC --> SANDBOX
+    CRITIC --> POLICY
+    AGENT --> MEMORY
+    ROUTER --> STATS
+    CLI --> STATS
+    CLI --> TELEMETRY
+    ROUTER --> TELEMETRY
+    ENGINE --> STATS
+```
+
+The data flow for a Code-mode task:  
+`User input → CLI → KittyAgent → Planner (scope) → queue of tasks → DebateManager (Builder + Critic) → ToolEngine → SafetyCritic → SandboxValidator → fs/cmd execution → flush all state`
+
+---
+
 ## Notes
 
 - Tool execution is sandboxed to project scope and destructive actions require confirmation.
