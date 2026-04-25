@@ -1,5 +1,7 @@
 import os
 import shlex
+import sys
+from pathlib import PurePath
 from typing import List, Tuple
 
 
@@ -44,13 +46,17 @@ BLOCKED_EXECUTABLES = {
     "reg",
     "powershell",
     "pwsh",
+    "bash",
+    "sh",
+    "zsh",
+    "fish",
+    "cmd",
 }
 
 BLOCKED_ARG_PATTERNS = [
     "-enc",
     "--encodedcommand",
     "/c",
-    "-c",
 ]
 
 
@@ -75,14 +81,19 @@ def validate_command(command: str) -> Tuple[bool, str]:
             return False, f"Blocked shell control token: {token}"
 
     try:
-        parts = shlex.split(cmd, posix=False)
+        use_posix = sys.platform != "win32"
+        parts = shlex.split(cmd, posix=use_posix)
     except ValueError:
         return False, "Command parse failure"
 
     if not parts:
         return False, "No executable provided"
 
-    exe = parts[0].lower()
+    # Strip surrounding quotes and normalize to bare executable name
+    exe = parts[0].strip("\"'").lower()
+    # Strip path prefix so "C:\Python\python.exe" -> "python"
+    exe = PurePath(exe).stem
+
     allowed = _allowed_prefixes()
 
     if exe in BLOCKED_EXECUTABLES:

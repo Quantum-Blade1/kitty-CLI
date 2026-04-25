@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kittycode"
-version = "0.2.0"
+version = "1.0.0"
 description = "Local-first AI coding CLI with safe execution, structured memory, and model routing."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -40,6 +40,18 @@ dev = [
   "pytest-cov>=5.0.0",
   "build>=1.2.0",
   "twine>=5.0.0"
+]
+vector = [
+  "faiss-cpu>=1.7.0",
+  "sentence-transformers>=2.2.0",
+]
+gemini = [
+  "google-genai>=0.4.0",
+]
+all = [
+  "faiss-cpu>=1.7.0",
+  "sentence-transformers>=2.2.0",
+  "google-genai>=0.4.0",
 ]
 
 [tool.setuptools.packages.find]

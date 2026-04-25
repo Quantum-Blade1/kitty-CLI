@@ -1,6 +1,8 @@
 import logging
 from typing import List, Tuple
 
+from kittycode.utils.helpers import extract_content
+
 logger = logging.getLogger(__name__)
 
 CRITIC_PROMPT = """
@@ -37,17 +39,17 @@ class DebateManager:
         self.router = router
         self.engine = engine
 
-    def _extract_content(self, output):
-        if isinstance(output, list) and len(output) > 0: output = output[-1]
-        if isinstance(output, dict): return output.get("content", str(output))
-        return str(output)
 
-    def _critic_review(self, task: str, builder_output: str) -> Tuple[bool, str]:
+
+    def _critic_review(self, task: str, builder_output: str, tool_logs: list = None) -> Tuple[bool, str]:
         """
         Sends Builder output to Critic for review.
         Returns (passed: bool, critique_text: str)
         """
-        review_input = f"TASK: {task}\n\nBUILDER OUTPUT:\n{builder_output}"
+        tool_section = ""
+        if tool_logs:
+            tool_section = "\n\nTOOL CALLS EXECUTED:\n" + "\n".join(tool_logs)
+        review_input = f"TASK: {task}\n\nBUILDER OUTPUT:\n{builder_output}{tool_section}"
         
         prompt = [
             {"role": "system", "content": CRITIC_PROMPT},
@@ -56,7 +58,7 @@ class DebateManager:
         
         try:
             result, _ = self.router.generate(prompt, task_type="Thought")
-            verdict = self._extract_content(result.output).strip()
+            verdict = extract_content(result.output).strip()
             
             if verdict.upper().startswith("PASS"):
                 return True, verdict
@@ -84,7 +86,7 @@ class DebateManager:
         
         try:
             result, model_key = self.router.generate(history_copy, task_type="Code")
-            raw_text = self._extract_content(result.output)
+            raw_text = extract_content(result.output)
             
             # Process tools from revised output
             tool_logs, clean_speech = self.engine.execute_tools(raw_text, status=status)
@@ -120,14 +122,14 @@ class DebateManager:
         
         try:
             result, model_key = self.router.generate(history_copy, task_type="Code")
-            raw_text = self._extract_content(result.output)
+            raw_text = extract_content(result.output)
             tool_logs, clean_speech = self.engine.execute_tools(raw_text, status=status)
             actions = [f"Builder via: {model_key}"] + tool_logs
         except Exception as e:
             return f"Builder failed: {e}", [], history
         
         # Step 2: Critic reviews
-        passed, critique = self._critic_review(task, clean_speech)
+        passed, critique = self._critic_review(task, clean_speech, tool_logs=tool_logs)
         actions.append(f"Critic: {'PASS' if passed else 'REVISE'}")
         
         # Step 3: If Critic rejected, Builder gets ONE revision

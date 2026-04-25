@@ -9,7 +9,12 @@ KITTY_GLOBAL_DIR.mkdir(exist_ok=True)
 ENV_PATH = KITTY_GLOBAL_DIR / ".env"
 
 # Project-scoped configs
-PROJECT_ROOT = Path.cwd()
+def get_project_root() -> Path:
+    """Returns the current working directory as the project root."""
+    return Path.cwd()
+
+# Backward-compat module-level variable (resolved at import)
+PROJECT_ROOT = get_project_root()
 KITTY_PROJECT_DIR = PROJECT_ROOT / ".kitty"
 KITTY_PROJECT_DIR.mkdir(exist_ok=True)
 

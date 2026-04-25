@@ -1,9 +1,17 @@
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 try:
     from bytez import Bytez as _Bytez
 except ImportError:  # pragma: no cover — optional runtime dep
     _Bytez = None  # type: ignore
+
+
+@dataclass
+class ProviderResult:
+    """Unified result object for all providers."""
+    output: Any
+    error: Optional[str] = None
 
 
 class BaseProvider:
@@ -49,30 +57,36 @@ class GeminiProvider(BaseProvider):
         if not self.client:
             raise RuntimeError("Gemini Provider client not initialized.")
         from google.genai import types
-        
-        contents = ""
+
+        # Build structured contents for multi-turn context
         if isinstance(prompt, list):
+            contents = []
             for msg in prompt:
-                role = msg.get("role", "user").upper()
-                contents += f"[{role}]\n{msg.get('content', '')}\n\n"
+                role = msg.get("role", "user")
+                # Gemini uses "user" / "model"; map "assistant" -> "model"
+                gemini_role = "model" if role == "assistant" else "user"
+                contents.append(types.Content(
+                    role=gemini_role,
+                    parts=[types.Part(text=msg.get("content", ""))]
+                ))
         else:
             contents = str(prompt)
 
         temperature = params.get("temperature", 0.7) if params else 0.7
         real_model_id = model_id.split("/")[-1] if "/" in model_id else model_id
-        
-        response = self.client.models.generate_content(
-            model=real_model_id,
-            contents=contents,
-            config=types.GenerateContentConfig(temperature=temperature)
-        )
-        
-        class MockResult:
-            def __init__(self, text):
-                self.output = text
-                self.error = None
-        
-        return MockResult(response.text)
+
+        try:
+            response = self.client.models.generate_content(
+                model=real_model_id,
+                contents=contents,
+                config=types.GenerateContentConfig(temperature=temperature)
+            )
+        except Exception as e:
+            raise RuntimeError(f"Gemini API call failed: {e}")
+
+        # Guard against None response text (can happen with safety filters)
+        text = response.text if response.text else ""
+        return ProviderResult(output=text)
 
 class OpenRouterProvider(BaseProvider):
     def __init__(self, api_key: str):
@@ -85,40 +99,57 @@ class OpenRouterProvider(BaseProvider):
         if not self.has_client():
             raise RuntimeError("OpenRouter Provider client not initialized.")
         import urllib.request
+        import urllib.error
         import json
 
         contents = []
         if isinstance(prompt, list):
             for msg in prompt:
                 role = msg.get("role", "user")
-                contents.append({"role": role, "content": str(msg.get("content", ""))})
+                text = str(msg.get("content", ""))
+                if text:
+                    contents.append({"role": role, "content": text})
         else:
-            contents.append({"role": "user", "content": str(prompt)})
+            prompt_str = str(prompt).strip()
+            if prompt_str:
+                contents.append({"role": "user", "content": prompt_str})
+
+        if not contents:
+            return ProviderResult(output="", error="Empty prompt")
 
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
-        
+
         temperature = params.get("temperature", 0.7) if params else 0.7
         data = {
             "model": model_id,
             "messages": contents,
             "temperature": temperature
         }
-        
+
         req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
-        
-        class MockResult:
-            def __init__(self, text):
-                self.output = text
-                self.error = None
-                
+
         try:
-            with urllib.request.urlopen(req) as response:
+            with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310
                 result = json.loads(response.read().decode("utf-8"))
-                text = result["choices"][0]["message"]["content"]
-                return MockResult(text)
+                # Safely extract the response text
+                try:
+                    text = result["choices"][0]["message"]["content"]
+                except (KeyError, IndexError, TypeError):
+                    error_detail = result.get("error", {})
+                    if isinstance(error_detail, dict):
+                        error_msg = error_detail.get("message", str(result))
+                    else:
+                        error_msg = str(error_detail) if error_detail else str(result)
+                    return ProviderResult(output="", error=f"Unexpected response structure: {error_msg}")
+                return ProviderResult(output=text)
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8", errors="replace")
+            raise Exception(f"OpenRouter HTTP {e.code}: {error_body[:300]}") from e
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"OpenRouter connection error: {e.reason}")
         except Exception as e:
-            raise Exception(f"OpenRouter API error: {str(e)}")
+            raise RuntimeError(f"OpenRouter API error: {str(e)}")

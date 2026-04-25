@@ -1,14 +1,27 @@
-.env
-memory.json
 __pycache__/
 *.pyc
-*.egg-info/
+*.pyo
 dist/
 build/
-.kittycode/
-.pytest_cache/
+*.egg-info/
+
+# Secrets — NEVER commit API keys
+.env
+
+# KittyCode runtime state
 .kitty/
-*.log
-*.tmp
+.kittycode/
+
+# Memory exports (runtime artifacts)
 memory_export*.json
-stage4_memory_export.json
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

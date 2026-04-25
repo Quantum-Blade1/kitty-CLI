@@ -39,6 +39,9 @@ class SafetyCritic:
 
     def __init__(self, project_root: Path = None):
         self.project_root = (project_root or PROJECT_ROOT).resolve()
+        # Own sandbox instance — never touches the shared singleton
+        from kittycode.security.sandbox import SandboxValidator
+        self._sandbox = SandboxValidator(self.project_root)
         self._checks = {
             "write":  self._check_write,
             "mkdir":  self._check_mkdir,
@@ -83,11 +86,11 @@ class SafetyCritic:
 
     def _check_path_safety(self, tool_name: str, path: str) -> CriticVerdict:
         """Check for traversal, symlinks, sensitive targets, and dangerous extensions."""
-        from kittycode.security.sandbox import get_validator, SandboxError
-        
-        # Containment + symlink check via centralized validator
+        from kittycode.security.sandbox import SandboxError
+
+        # Containment + symlink check via critic's own sandbox instance
         try:
-            resolved = get_validator(self.project_root).validate(path)
+            resolved = self._sandbox.validate(path)
         except SandboxError as e:
             return CriticVerdict(False, str(e), tool_name, {"path": path})
 

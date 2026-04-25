@@ -74,10 +74,18 @@ class KittyAgent:
         from kittycode.plugins.loader import load_plugins
         self._loaded_plugins = load_plugins(self.registry)
         
-        self.llm = LLMClient(self.memory, self.engine)
-        self.planner = Planner(self.llm.router)
-        self.debate = DebateManager(self.llm.router, self.engine)
-        self.history_mgr = HistoryManager(router=self.llm.router)
+        try:
+            self.llm = LLMClient(self.memory, self.engine)
+            self.planner = Planner(self.llm.router)
+            self.debate = DebateManager(self.llm.router, self.engine)
+            self.history_mgr = HistoryManager(router=self.llm.router)
+        except Exception as e:
+            from kittycode.telemetry.logger import get_logger
+            get_logger("agent").warning("no_router", error=str(e))
+            self.llm = None
+            self.planner = None
+            self.debate = None
+            self.history_mgr = None
         self.debate_active = False
         self.total_plan_size = 0
         
@@ -88,6 +96,8 @@ class KittyAgent:
         self._update_system_prompt(mode="Code")
 
     def _update_system_prompt(self, mode: str = "Code"):
+        if self.planner is None:
+            return
         strategy_ctx = self.planner.get_strategy_context()
         base_prompt = KITTY_SYSTEM_PROMPT if self.config.persona_enabled else KITTY_STRICT_PROMPT
         
@@ -118,10 +128,14 @@ class KittyAgent:
             self.history.insert(0, {"role": "system", "content": sys_prompt})
 
     def get_thought(self):
+        if self.llm is None:
+            return "Kitty is here for you, even offline! nya~ ♥"
         return self.llm.get_thought()
 
     def get_chat_response(self, user_input: str):
         """Fast-path for Chat mode: Bypasses the planner and debate loops entirely."""
+        if self.llm is None:
+            return "Kitty is offline — no model provider is configured. Run `kitty doctor` to diagnose.", []
         self._update_system_prompt(mode="Chat")
         response, actions, updated_history = self.llm.get_response(user_input, self.history)
         self.history = self.history_mgr.trim(updated_history)
@@ -129,6 +143,8 @@ class KittyAgent:
 
     def generate_plan(self, user_input: str) -> list:
         """Asks the planner to break down the user's request into a queue."""
+        if self.planner is None:
+            return []
         self._update_system_prompt(mode="Code")
         queue = self.planner.generate_plan(user_input)
         self.total_plan_size = len(queue)
@@ -170,6 +186,8 @@ class KittyAgent:
 
     def get_response(self, user_input: str):
         """Legacy direct response (no planning loop)"""
+        if self.llm is None:
+            return "Kitty is offline — no model provider is configured. Run `kitty doctor` to diagnose.", []
         response, actions, updated_history = self.llm.get_response(user_input, self.history)
         self.history = self.history_mgr.trim(updated_history)
         return response, actions
@@ -186,7 +204,9 @@ class KittyAgent:
         This replaces 4-10 individual writes per interaction with a single batch.
         """
         from kittycode.utils.stats import StatsManager
+        self.memory.save()                    # memory_meta.json
         StatsManager().flush()               # stats.json
-        self.llm.router.health.flush()        # model_health.json
-        self.llm.router.flush_log()           # router_log.json
+        if self.llm is not None:
+            self.llm.router.health.flush()    # model_health.json
+            self.llm.router.flush_log()       # router_log.json
 

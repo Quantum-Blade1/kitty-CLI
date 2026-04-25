@@ -19,10 +19,32 @@ class ModelRouter:
         self.health = ModelHealthTracker()
         self._router_log = self._load_router_log()
         self._router_dirty = False
-        self.bytez_provider = BytezProvider(BYTEZ_KEY)
-        self.gemini_provider = GeminiProvider(GEMINI_KEY)
-        self.openrouter_provider = OpenRouterProvider(OPENROUTER_KEY)
-        load_preferences()
+
+        # Provider dispatch registry — single source of truth
+        self._providers = {
+            "bytez":     BytezProvider(BYTEZ_KEY),
+            "google":    GeminiProvider(GEMINI_KEY),
+            "openai":    OpenRouterProvider(OPENROUTER_KEY),
+            "anthropic": OpenRouterProvider(OPENROUTER_KEY),
+            "deepseek":  OpenRouterProvider(OPENROUTER_KEY),
+            "meta":      OpenRouterProvider(OPENROUTER_KEY),
+        }
+
+        self._current_prefs = load_preferences()
+
+    # --- Provider Resolution ---
+
+    def _resolve_provider(self, provider_name: str):
+        """Resolve the active provider for a given provider name, with fallback chain."""
+        p = self._providers.get(provider_name)
+        if p and p.has_client():
+            return p
+        # fallback chain
+        for name in ("openai", "bytez"):
+            fb = self._providers.get(name)
+            if fb and fb.has_client():
+                return fb
+        return None
 
     # --- Router Decision Log ---
 
@@ -64,18 +86,32 @@ class ModelRouter:
     # --- Adaptive Routing Chain ---
 
     def _get_routing_chain(self, task_type: str) -> List[str]:
+        from kittycode.quantum.router_q import quantum_select
+
         prefs = TASK_PREFERENCES.get(task_type, TASK_PREFERENCES["Chat"])
         base_list = prefs["primary"] + prefs["fallback"]
-        return build_routing_chain(base_list, self.health)
+
+        # Deterministic health gate first (remove degraded models)
+        viable = build_routing_chain(base_list, self.health)
+
+        # Quantum-inspired ordering of viable models
+        return quantum_select(viable, self.health, task_type, self._router_log)
 
     # --- Confidence Check ---
 
     def _check_output_confidence(self, result, task_type: str) -> bool:
         try:
             output = result.output
-            if isinstance(output, list) and len(output) > 0:
-                output = output[-1]
-            content = output.get("content", "") if isinstance(output, dict) else str(output)
+            # Handle all output shapes: str (Gemini/OpenRouter), list, dict (Bytez)
+            if isinstance(output, str):
+                content = output
+            elif isinstance(output, list) and len(output) > 0:
+                last = output[-1]
+                content = last.get("content", str(last)) if isinstance(last, dict) else str(last)
+            elif isinstance(output, dict):
+                content = output.get("content", str(output))
+            else:
+                content = str(output) if output else ""
             if not content or not content.strip():
                 return False
             if task_type == "Code" and len(content.strip()) < 5:
@@ -89,7 +125,8 @@ class ModelRouter:
     def generate(self, prompt: Any, task_type: str = "Chat") -> Tuple[Any, str]:
         from kittycode.config.settings import RuntimeConfig
 
-        if not self.bytez_provider.has_client() and not self.gemini_provider.has_client() and not self.openrouter_provider.has_client():
+        # Check that at least one provider is available
+        if not any(p.has_client() for p in self._providers.values()):
             raise Exception("SDK not initialized. Check API Key.")
 
         config = RuntimeConfig()
@@ -102,14 +139,11 @@ class ModelRouter:
                 continue
 
             provider_name = reg_info.get("provider", "bytez")
-            if provider_name == "google" and self.gemini_provider.has_client():
-                active_provider = self.gemini_provider
-            elif provider_name in ["openai", "anthropic", "deepseek", "meta"] and self.openrouter_provider.has_client():
-                active_provider = self.openrouter_provider
-            elif self.bytez_provider.has_client():
-                active_provider = self.bytez_provider
-            else:
-                last_error = Exception(f"Provider for {model_key} not configured properly.")
+            active_provider = self._resolve_provider(provider_name)
+
+            if active_provider is None:
+                last_error = Exception(f"No provider available for {model_key} (needs {provider_name})")
+                log.warning("provider_unavailable", model=model_key, provider=provider_name)
                 continue
 
             t0 = time.time()

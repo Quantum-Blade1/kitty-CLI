@@ -21,7 +21,8 @@ from kittycode.config.settings import MAX_WIDTH, PROJECT_ROOT, RuntimeConfig
 from kittycode.utils.helpers import clear
 
 app = typer.Typer(
-    help="KittyCode production CLI: interactive co-pilot with safe execution, memory, and model routing."
+    help="KittyCode production CLI: interactive co-pilot with safe execution, memory, and model routing.",
+    add_completion=True,
 )
 memory_app = typer.Typer(invoke_without_command=True, help="Structured memory operations.")
 app.add_typer(memory_app, name="memory")
@@ -260,10 +261,15 @@ def run_app() -> None:
     else:
         state.user_name = kitty.memory.get("user_name")
 
-    clear()
-    select_theme()
-    clear()
-    select_primary_model()
+    is_first_run = not kitty.memory.get('setup_complete')
+    if is_first_run:
+        clear()
+        select_theme()
+        clear()
+        select_primary_model()
+        kitty.memory.set_fact('setup_complete', 'true', category='identity')
+        kitty.memory.save()
+
     refresh_thought()
 
     while state.running:
@@ -710,6 +716,8 @@ def chat(
             emit_json({"ok": False, "error": str(e)})
         else:
             console.print(f"[bold red]Chat failed:[/bold red] {e}")
+        from kittycode.telemetry.logger import get_logger
+        get_logger("cli").error("command_failed", command="chat", error=str(e)[:200])
         raise typer.Exit(code=EXIT_RUNTIME_ERROR)
 
     if is_json_mode():
@@ -735,6 +743,8 @@ def run(
             emit_json({"ok": False, "error": str(e)})
         else:
             console.print(f"[bold red]Plan generation failed:[/bold red] {e}")
+        from kittycode.telemetry.logger import get_logger
+        get_logger("cli").error("command_failed", command="run.plan", error=str(e)[:200])
         raise typer.Exit(code=EXIT_RUNTIME_ERROR)
 
     if not execute:
@@ -770,6 +780,8 @@ def run(
             emit_json({"ok": False, "error": str(e), "results": results})
         else:
             console.print(f"[bold red]Execution failed:[/bold red] {e}")
+        from kittycode.telemetry.logger import get_logger
+        get_logger("cli").error("command_failed", command="run.execute", error=str(e)[:200])
         raise typer.Exit(code=EXIT_RUNTIME_ERROR)
     finally:
         Confirm.ask = original_confirm

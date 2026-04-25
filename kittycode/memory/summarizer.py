@@ -1,5 +1,7 @@
 import logging
 
+from kittycode.utils.helpers import extract_content
+
 logger = logging.getLogger(__name__)
 
 SUMMARIZE_PROMPT = """
@@ -36,7 +38,7 @@ class Summarizer:
                 {"role": "user", "content": text_block}
             ]
             result, _ = self.router.generate(prompt, task_type="Thought")
-            summary = self._extract_content(result.output).strip()
+            summary = extract_content(result.output).strip()
             if summary and len(summary) > 10:
                 return summary
             # If summary is garbage, fall back
@@ -62,9 +64,4 @@ class Summarizer:
             return text
         return text[:max_chars] + "... [truncated]"
 
-    def _extract_content(self, output):
-        if isinstance(output, list) and len(output) > 0:
-            output = output[-1]
-        if isinstance(output, dict):
-            return output.get("content", str(output))
-        return str(output)
+
