@@ -2,7 +2,7 @@
 
 KittyCode is an advanced, local-first AI coding CLI and agentic co-pilot. It is engineered for maximum performance, offline resilience, and strict execution security. Recently upgraded with **pure-Python quantum-inspired heuristics**, KittyCode approaches model routing, task planning, and memory retrieval as mathematical probability optimizations rather than simple linear chains.
 
-## ✨ Core Capabilities
+## Core Capabilities
 
 - **Quantum-Inspired Architecture**: Uses amplitude amplification (Grover-style search) for memory retrieval, superposition for model routing, and simulated quantum annealing for structural task planning.
 - **Strict Execution Sandbox**: All filesystem operations are contained. A robust `SafetyCritic` guards against path traversal, large payloads, and destructive shell operators.
@@ -12,7 +12,7 @@ KittyCode is an advanced, local-first AI coding CLI and agentic co-pilot. It is 
 
 ---
 
-## 🚀 Installation
+## Installation
 
 KittyCode uses modern Python packaging (`pyproject.toml`).
 
@@ -29,7 +29,7 @@ You can selectively install dependencies based on your needs:
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Set up your environment variables. KittyCode searches for `.env` files in `~/.kittycode/.env` (Global) and `./.env` (Project-specific).
 
@@ -47,7 +47,7 @@ KITTY_CMD_ALLOWLIST=python,pytest,git,ls,cat
 
 ---
 
-## 💻 Usage & CLI Endpoints
+## Usage & CLI Endpoints
 
 KittyCode utilizes `Typer` and `Rich` to provide a beautiful, structured terminal interface. Add the `--json` flag to any command for programmatic integration.
 
@@ -81,7 +81,7 @@ KittyCode utilizes `Typer` and `Rich` to provide a beautiful, structured termina
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 KittyCode's architecture is divided into discrete layers that prioritize security, deterministic routing, and structural planning.
 
@@ -173,7 +173,7 @@ sequenceDiagram
 
 ---
 
-## 🔒 Security Policies
+## Security Policies
 
 - **Subprocess Guardrails**: Terminal commands executed via `run_cmd` are strictly timed out (60s) and screened against a predefined blocked patterns list (e.g., `rm -rf`, `&&`, `;`).
 - **Path Confinement**: All tool actions require absolute paths validated against the `SandboxValidator`, ensuring no traversal (`../`) escapes the project boundaries.
