@@ -53,6 +53,12 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         "provider": "google",
         "strengths": ["reasoning", "context", "multimodal"],
         "max_tokens": 8192
+    },
+    "bytez-llama": {
+        "id": "meta-llama/Meta-Llama-3-8B-Instruct",
+        "provider": "bytez",
+        "strengths": ["chat", "speed", "general"],
+        "max_tokens": 8192
     }
 }
 
@@ -60,15 +66,15 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
 DEFAULT_TASK_PREFERENCES = {
     "Code": {
         "primary": ["gpt-4.1"],
-        "fallback": ["claude-sonnet", "claude-haiku", "gemini-pro"]
+        "fallback": ["claude-sonnet", "claude-haiku", "gemini-pro", "bytez-llama"]
     },
     "Chat": {
         "primary": ["gpt-4.1"],
-        "fallback": ["claude-sonnet", "claude-haiku", "gemini-pro"]
+        "fallback": ["claude-sonnet", "claude-haiku", "gemini-pro", "bytez-llama"]
     },
     "Thought": {
         "primary": ["gpt-4.1"],
-        "fallback": ["claude-sonnet", "claude-haiku", "gemini-pro"]
+        "fallback": ["claude-sonnet", "claude-haiku", "gemini-pro", "bytez-llama"]
     }
 }
 

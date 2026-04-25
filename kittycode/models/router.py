@@ -35,15 +35,10 @@ class ModelRouter:
     # --- Provider Resolution ---
 
     def _resolve_provider(self, provider_name: str):
-        """Resolve the active provider for a given provider name, with fallback chain."""
+        """Resolve the active provider for a given provider name."""
         p = self._providers.get(provider_name)
         if p and p.has_client():
             return p
-        # fallback chain
-        for name in ("openai", "bytez"):
-            fb = self._providers.get(name)
-            if fb and fb.has_client():
-                return fb
         return None
 
     # --- Router Decision Log ---
