@@ -268,19 +268,34 @@ Kitty can handle high-level research tasks, such as simulating complex quantum c
 
 ╭─  ───────────────────────────────────────────────────────────────────────────────╮
 │ Task: Implement Quantum Phase Estimation (QPE)                                   │
-│ ฅ^•ﻌ•^ฅ I'm building the core of Shor's algorithm! We'll start with the          │
-│ QPE module, which is essential for finding the period of the function.           │
-│ I'll use a modular exponentiation approach to simulate the quantum gates         │
-│ using unitary matrices to ensure we stay within the Hilbert space.               │
+│ ฅ^•ﻌ•^ฅ I'm building the core of Shor's algorithm! I'll implement the            │
+│ QPE module using unitary matrices to ensure we stay within the Hilbert space.    │
+│                                                                                  │
+│ ```python                                                                        │
+│ import numpy as np                                                               │
+│ def qpe_unitary(u_matrix, n_qubits):                                             │
+│     # Simulate quantum phase estimation logic                                    │
+│     phase = np.linalg.eigvals(u_matrix)                                          │
+│     return np.angle(phase) / (2 * np.pi)                                         │
+│ ```                                                                              │
 │                                                                                  │
 │ ^^ Work Log:                                                                     │
 │   write: quantum/shors_core.py                                                   │
-│   draw_tree: QPE Logic Flow                                                      │
+╰──────────────────────────────────────────────────────────────────────────────────╯
+
+╭─  ───────────────────────────────────────────────────────────────────────────────╮
+│ Task: Verify Unitary Constraints                                                 │
+│ ฅ^•ﻌ•^ฅ Now I'll run a verification script to ensure our simulated gates         │
+│ are perfectly unitary before proceeding to the modular exponentiation step.      │
+│                                                                                  │
+│ ^^ Work Log:                                                                     │
+│   run_cmd: python -c "import numpy as np; from quantum.shors_core import ...; "  │
+│   Output: Verification SUCCESS: Gate is Unitary.                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 #### Example 2: Machine Learning from Scratch
-Kitty is capable of building complex mathematical models and visualizing their architecture during the build process.
+Kitty is capable of building complex mathematical models and verifying their performance autonomously.
 
 ```text
 ╭───────────────────────────────────────────────────╮
@@ -291,15 +306,32 @@ Kitty is capable of building complex mathematical models and visualizing their a
 ╭─  ───────────────────────────────────────────────────────────────────────────────╮
 │ Task: Implement Backpropagation Engine                                           │
 │ ฅ^•ﻌ•^ฅ Time to build the "brain"! I'm implementing the chain rule              │
-│ manually to calculate gradients for our weight updates. I'll include              │
-│ a custom Sigmoid derivative for the activation gradient to ensure                │
-│ smooth convergence during the training loop.                                     │
+│ manually to calculate gradients for our weight updates.                          │
+│                                                                                  │
+│ ```python                                                                        │
+│ def sigmoid_prime(z):                                                            │
+│     return sigmoid(z) * (1 - sigmoid(z))                                         │
+│                                                                                  │
+│ def backward(self, x, y, output):                                                │
+│     self.output_error = y - output                                               │
+│     self.output_delta = self.output_error * sigmoid_prime(output)                │
+│ ```                                                                              │
 │                                                                                  │
 │ ^^ Work Log:                                                                     │
 │   write: ml/engine.py                                                            │
-│   draw_tree: Neural Network Architecture                                         │
+╰──────────────────────────────────────────────────────────────────────────────────╯
+
+╭─  ───────────────────────────────────────────────────────────────────────────────╮
+│ Task: Run Convergence Test                                                       │
+│ ฅ^•ﻌ•^ฅ I've written a small training script to verify that the loss             │
+│ decreases over 100 epochs. Let's check the results!                              │
+│                                                                                  │
+│ ^^ Work Log:                                                                     │
+│   run_cmd: pytest tests/test_ml_engine.py                                        │
+│   Output: 5 passed in 0.12s. Loss: 0.69 -> 0.01                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────╯
 ```
+
 
 Kitty's responses are designed to be helpful, transparent, and technically insightful, ensuring a premium "companion" experience while maintaining professional-grade tool execution.
 
