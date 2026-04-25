@@ -9,6 +9,11 @@ KittyCode is an advanced, local-first AI coding CLI and agentic co-pilot. It is 
 - **Multi-Model Routing**: Native support for `OpenRouter`, `Bytez`, and `Gemini`. Models are continually health-checked, and routing dynamically adjusts based on success rates and latencies.
 - **Debate & Validation Loop**: A dual-agent setup where a `Builder` creates plans and a `Critic` evaluates both the logic and the *execution logs* before generating the final output.
 - **Graceful Offline Degradation**: Boots and operates locally even if API keys are missing or the network drops.
+- **Incremental Interactive UI**: Optimized for speed and clarity, only re-rendering what's necessary to prevent flicker and duplication.
+
+## Response Demo
+
+![KittyCode Interactive UI Demo](file:///C:/Users/krish/.gemini/antigravity/brain/09d0fd77-4910-49bc-97b7-25fc952bec0c/kitty_ui_demo_1777154472662.png)
 
 ---
 
