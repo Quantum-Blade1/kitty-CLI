@@ -106,22 +106,23 @@ def setup_logging(debug: bool = False):
         return
     _initialized = True
 
-    root = logging.getLogger("kitty")
-    root.setLevel(logging.DEBUG if debug else logging.INFO)
-    root.handlers.clear()
+    for name in ["kitty", "kittycode"]:
+        root = logging.getLogger(name)
+        root.setLevel(logging.DEBUG if debug else logging.INFO)
+        root.handlers.clear()
 
-    # File handler — always active, JSON formatted
-    file_handler = logging.FileHandler(str(LOG_FILE), encoding="utf-8")
-    file_handler.setLevel(logging.DEBUG if debug else logging.INFO)
-    file_handler.setFormatter(StructuredFormatter())
-    root.addHandler(file_handler)
+        # File handler — always active, JSON formatted
+        file_handler = logging.FileHandler(str(LOG_FILE), encoding="utf-8")
+        file_handler.setLevel(logging.DEBUG if debug else logging.INFO)
+        file_handler.setFormatter(StructuredFormatter())
+        root.addHandler(file_handler)
 
-    # Console handler — only in debug mode
-    if debug:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.DEBUG)
-        console_handler.setFormatter(StructuredFormatter())
-        root.addHandler(console_handler)
+        # Console handler — only in debug mode
+        if debug:
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.DEBUG)
+            console_handler.setFormatter(StructuredFormatter())
+            root.addHandler(console_handler)
 
 
 def get_logger(name: str) -> StructuredLogger:

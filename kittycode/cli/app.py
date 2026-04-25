@@ -111,7 +111,7 @@ def observe_command(command_name: str):
 
 def typewriter_stream(text: str, logs: List[str] | None = None) -> None:
     displayed = ""
-    with Live(auto_refresh=True, console=console) as live:
+    with Live(auto_refresh=True, console=console, transient=True) as live:
         for char in text:
             displayed += char
             live.update(

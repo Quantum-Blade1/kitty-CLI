@@ -1,8 +1,7 @@
 import json
-import logging
 from kittycode.config.settings import HEALTH_FILE
-
-logger = logging.getLogger(__name__)
+from kittycode.telemetry.logger import get_logger
+logger = get_logger("models.health")
 
 CONSECUTIVE_FAIL_THRESHOLD = 3
 LATENCY_THRESHOLD_S = 30.0
