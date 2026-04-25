@@ -9,11 +9,6 @@ KittyCode is an advanced, local-first AI coding CLI and agentic co-pilot. It is 
 - **Multi-Model Routing**: Native support for `OpenRouter`, `Bytez`, and `Gemini`. Models are continually health-checked, and routing dynamically adjusts based on success rates and latencies.
 - **Debate & Validation Loop**: A dual-agent setup where a `Builder` creates plans and a `Critic` evaluates both the logic and the *execution logs* before generating the final output.
 - **Graceful Offline Degradation**: Boots and operates locally even if API keys are missing or the network drops.
-- **Incremental Interactive UI**: Optimized for speed and clarity, only re-rendering what's necessary to prevent flicker and duplication.
-
-## Response Demo
-
-![KittyCode Interactive UI Demo](file:///C:/Users/krish/.gemini/antigravity/brain/09d0fd77-4910-49bc-97b7-25fc952bec0c/kitty_ui_demo_1777154472662.png)
 
 ---
 
@@ -183,3 +178,40 @@ sequenceDiagram
 - **Subprocess Guardrails**: Terminal commands executed via `run_cmd` are strictly timed out (60s) and screened against a predefined blocked patterns list (e.g., `rm -rf`, `&&`, `;`).
 - **Path Confinement**: All tool actions require absolute paths validated against the `SandboxValidator`, ensuring no traversal (`../`) escapes the project boundaries.
 - **Observability**: Execution errors and structural exceptions are piped to local `.kitty/` JSON logs for safe post-mortem review.
+
+---
+
+## Interaction Demo
+
+Here is a typical interaction with Kitty in **Chat Mode**, showcasing her persona, memory integration, and transparent routing logs:
+
+```text
+╭─────────────────────────╮
+│ what are u r features ? │
+╰───────────────── user ──╯
+╭─  ───────────────────────────────────────────────────────────────────────────────╮
+│ ฅ^•ﻌ•^ฅ Nya~! I'm Kitty, your warm and proactive AI companion! Here's what I can │
+│ do to help you:                                                                  │
+│                                                                                  │
+│  1 Memory & Personalization – I can remember important details about you (like   │
+│    your preferences or setup) to make our interactions more tailored.            │
+│  2 Conversational Support – Need advice, brainstorming, or just a friendly chat? │
+│    I’m here!                                                                     │
+│  3 Workspace Assistance – In Code Mode, I can help with files, directories, and  │
+│    even run commands.                                                            │
+│  4 Tool Integration – I can use tools like saving facts about you (e.g., your    │
+│    favorite coding language or project goals).                                   │
+│                                                                                  │
+│ For example, if you want me to remember something special, just say:             │
+│ "Kitty, remember that I love Python!"                                            │
+│                                                                                  │
+│ What would you like me to help with today? Nya~!                                 │
+│                                                                                  │
+│ ^^ Work Log:                                                                     │
+│   Routed via: deepseek-v3                                                        │
+│   Linked memory: user_features_query                                             │
+╰──────────────────────────────────────────────────────────────────────────────────╯
+```
+
+Kitty's responses are designed to be helpful, transparent, and slightly whimsical, ensuring a premium "companion" experience while maintaining professional-grade tool execution.
+
