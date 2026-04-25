@@ -213,5 +213,47 @@ Here is a typical interaction with Kitty in **Chat Mode**, showcasing her person
 ╰──────────────────────────────────────────────────────────────────────────────────╯
 ```
 
+### Code Mode (Autonomous Orchestration)
+
+In **Code Mode**, Kitty goes beyond conversation. She breaks down complex tasks into a plan, manages a task queue, and executes tools autonomously while keeping you in the loop.
+
+```text
+╭──────────────────────────────────╮
+│ setup a basic python hello world │
+╰────────────────────────── user ──╯
+[kruby]orchestrating...[/kruby]
+
+╭─  ───────────────────────────────────────────────────────────────────────────────╮
+│ Task: Create 'src' directory                                                     │
+│ ฅ^•ﻌ•^ฅ I've created a plan to set up your Python project!                       │
+│                                                                                  │
+│ 1. Create a `src` directory.                                                     │
+│ 2. Write a `hello.py` file with a greeting.                                      │
+│ 3. Run the script to verify everything works.                                    │
+│                                                                                  │
+│ ^^ Work Log:                                                                     │
+│   Task: Create 'src' directory                                                   │
+│   mkdir: C:\start\src                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────╯
+
+╭─  ───────────────────────────────────────────────────────────────────────────────╮
+│ Task: Write 'hello.py'                                                           │
+│ ฅ^•ﻌ•^ฅ Writing the code now!                                                    │
+│                                                                                  │
+│ ^^ Work Log:                                                                     │
+│   write: C:\start\src\hello.py                                                   │
+╰──────────────────────────────────────────────────────────────────────────────────╯
+
+╭─  ───────────────────────────────────────────────────────────────────────────────╮
+│ Task: Run script                                                                 │
+│ ฅ^•ﻌ•^ฅ All done! I ran the script and it says "Hello from KittyCode!"           │
+│                                                                                  │
+│ ^^ Work Log:                                                                     │
+│   run_cmd: python src/hello.py                                                   │
+│   Output: Hello from KittyCode!                                                  │
+╰──────────────────────────────────────────────────────────────────────────────────╯
+```
+
 Kitty's responses are designed to be helpful, transparent, and slightly whimsical, ensuring a premium "companion" experience while maintaining professional-grade tool execution.
+
 
