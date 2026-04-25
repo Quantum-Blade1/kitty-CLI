@@ -4,6 +4,7 @@ import re
 import yaml
 from typing import List, Dict, Optional
 from kittycode.config.settings import STRATEGY_FILE
+from kittycode.utils.helpers import extract_content
 from kittycode.utils.stats import StatsManager
 
 logger = logging.getLogger(__name__)
@@ -52,22 +53,19 @@ class Planner:
         self.strategies = []
         if self.strategy_file.exists():
             try:
-                with open(self.strategy_file, "r") as f:
+                with open(self.strategy_file, "r", encoding="utf-8") as f:
                     self.strategies = json.load(f)
             except Exception as e:
                 logger.error(f"Error loading strategies: {e}")
 
     def _save_strategies(self):
         try:
-            with open(self.strategy_file, "w") as f:
+            # Cap strategies to prevent unbounded growth
+            self.strategies = self.strategies[-100:]
+            with open(self.strategy_file, "w", encoding="utf-8") as f:
                 json.dump(self.strategies, f, indent=4)
         except Exception as e:
             logger.error(f"Error saving strategies: {e}")
-
-    def _extract_content(self, output):
-        if isinstance(output, list) and len(output) > 0: output = output[-1]
-        if isinstance(output, dict): return output.get("content", str(output))
-        return str(output)
 
     def generate_plan(self, user_request: str) -> List[Dict]:
         """Ask the LLM to break the request into a queue."""
@@ -83,7 +81,7 @@ class Planner:
         
         try:
             result, _ = self.router.generate(prompt, task_type="Thought")
-            output_text = self._extract_content(result.output).strip()
+            output_text = extract_content(result.output).strip()
             
             # Find the first { and the last } to extract the full JSON object block
             start_idx = output_text.find('{')
@@ -146,6 +144,10 @@ class Planner:
             logger.error(f"Planning failed: {e}")
             self.queue = []
             
+        if len(self.queue) > 2:
+            from kittycode.quantum.planner_q import quantum_anneal_steps
+            self.queue = quantum_anneal_steps(self.queue)
+            
         return self.queue
 
     def has_next_task(self) -> bool:
@@ -179,7 +181,7 @@ class Planner:
 
         try:
             result, _ = self.router.generate(prompt, task_type="Thought")
-            reflection = self._extract_content(result.output).strip()
+            reflection = extract_content(result.output).strip()
             
             # Save strategy
             self.strategies.append({

@@ -3,7 +3,7 @@ from importlib.util import find_spec
 from pathlib import Path
 from typing import List
 
-from kittycode.config.settings import BYTEZ_KEY, KITTY_GLOBAL_DIR, KITTY_PROJECT_DIR, PROJECT_ROOT
+from kittycode.config.settings import BYTEZ_KEY, OPENROUTER_KEY, KITTY_GLOBAL_DIR, KITTY_PROJECT_DIR, PROJECT_ROOT
 
 
 @dataclass(frozen=True)
@@ -83,6 +83,20 @@ def run_environment_checks() -> List[CheckResult]:
             severity="critical",
             detail="Python package import check",
             fix="Install dependencies: pip install -r requirements.txt",
+        ),
+        CheckResult(
+            name="OPENROUTER_API_KEY or BYTEZ_API_KEY configured",
+            ok=bool(OPENROUTER_KEY or BYTEZ_KEY),
+            severity="critical",
+            detail="At least one model provider key required",
+            fix="Set OPENROUTER_API_KEY or BYTEZ_API_KEY in ~/.kittycode/.env",
+        ),
+        CheckResult(
+            name="google-genai installed (optional)",
+            ok=find_spec("google.genai") is not None,
+            severity="warning",
+            detail="Needed for Gemini models",
+            fix="pip install google-genai",
         ),
     ]
     return checks

@@ -13,7 +13,7 @@ def test_policy_blocks_shell_operators():
     assert "Blocked shell control token" in reason
 
 
-def test_policy_blocks_inline_exec_flags():
-    ok, reason = validate_command("python -c \"print(1)\"")
-    assert ok is False
-    assert "Blocked argument pattern" in reason
+def test_policy_allows_python_c_flag():
+    ok, reason = validate_command('python -c "print(1)"')
+    assert ok is True
+

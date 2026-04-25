@@ -105,9 +105,17 @@ class SandboxValidator:
 # Module-level singleton for shared use
 _default_validator = None
 
-def get_validator(root: Path = None) -> SandboxValidator:
-    """Returns the shared SandboxValidator singleton."""
+def get_default_validator() -> SandboxValidator:
+    """Returns the shared SandboxValidator singleton.
+
+    The singleton is always rooted at PROJECT_ROOT (via the SandboxValidator
+    default).  No root override is accepted — callers that need a custom root
+    must instantiate their own SandboxValidator directly.
+    """
     global _default_validator
-    if _default_validator is None or root is not None:
-        _default_validator = SandboxValidator(root)
+    if _default_validator is None:
+        _default_validator = SandboxValidator()
     return _default_validator
+
+# Backward-compat alias
+get_validator = get_default_validator

@@ -286,20 +286,22 @@ class MemoryManager:
 
     # --- Keyword fallback ---
 
-    def _keyword_search(self, query: str, k: int) -> List[int]:
+    def _keyword_search(self, query: str, k: int, pool: List[Dict] = None) -> List[int]:
+        if pool is None:
+            pool = self.metadata
         tokens = {t for t in re.findall(r"\w+", query.lower()) if len(t) > 1}
         if not tokens:
-            return list(range(max(0, len(self.metadata) - k), len(self.metadata)))
+            return list(range(max(0, len(pool) - k), len(pool)))
 
         scored = []
-        for i, entry in enumerate(self.metadata):
+        for i, entry in enumerate(pool):
             text = str(entry.get("text", "")).lower()
             score = sum(1 for t in tokens if t in text)
             if score > 0:
                 scored.append((score, entry.get("timestamp", 0), i))
 
         if not scored:
-            return list(range(max(0, len(self.metadata) - k), len(self.metadata)))
+            return list(range(max(0, len(pool) - k), len(pool)))
 
         scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
         return [idx for _, _, idx in scored[:k]]
@@ -347,14 +349,13 @@ class MemoryManager:
             entry["links"].append(link_to)
 
         self._prune()
-        self._save_state()
         return mem_id
 
-    def list_memories(self, limit: int = 10, category: str = "") -> List[Dict]:
-        items = self.metadata[-max(1, limit):]
+    def list_memories(self, limit: int = 10, category: str = "") -> list:
+        items = self.metadata  # all memories, most recent last
         if category:
             items = [m for m in items if m.get("category") == category]
-        return items
+        return items[-limit:] if limit > 0 else items
 
     def find_memory_entries(self, query: str, limit: int = 10) -> List[Dict]:
         if not query.strip():
@@ -417,30 +418,41 @@ class MemoryManager:
         return {"path": str(export_path), "count": str(len(self.metadata))}
 
     def get_relevant_context(self, query: str, k: int = 5) -> List[str]:
-        if not self.metadata:
+        if not self.metadata or not query.strip():
             return []
 
         search_k = min(k, len(self.metadata))
         if search_k <= 0:
             return []
 
+        # Quantum amplitude amplification pre-filter
+        # Narrows the candidate set before FAISS or keyword search
+        from kittycode.quantum.memory_q import quantum_retrieve
+        candidate_pool = quantum_retrieve(query, self.metadata, k=min(k*3, len(self.metadata)))
+
         semantic_ids = []
         semantic_texts = []
 
         if self._ensure_ml_loaded():
             import numpy as np
+            import faiss
+
+            tmp_index = faiss.IndexFlatL2(self._dim)
+            texts = [m.get("text", "") for m in candidate_pool]
+            embeddings = self._model.encode(texts)
+            tmp_index.add(np.array(embeddings).astype("float32"))
 
             query_embedding = self._model.encode([query])
-            _, indices = self._index.search(np.array(query_embedding).astype("float32"), search_k)
+            _, indices = tmp_index.search(np.array(query_embedding).astype("float32"), min(search_k, len(candidate_pool)))
             for idx in indices[0]:
-                if idx != -1 and idx < len(self.metadata):
-                    mem = self.metadata[idx]
+                if idx != -1 and idx < len(candidate_pool):
+                    mem = candidate_pool[idx]
                     semantic_ids.append(mem.get("id"))
                     semantic_texts.append(mem.get("text", ""))
         else:
-            ranked = self._keyword_search(query, search_k)
+            ranked = self._keyword_search(query, search_k, pool=candidate_pool)
             for idx in ranked:
-                mem = self.metadata[idx]
+                mem = candidate_pool[idx]
                 semantic_ids.append(mem.get("id"))
                 semantic_texts.append(mem.get("text", ""))
 

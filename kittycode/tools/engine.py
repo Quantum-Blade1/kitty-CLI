@@ -75,8 +75,9 @@ class ToolEngine:
             try:
                 # YAML is a superset of JSON and far more resilient to raw LLM output escaping errors
                 tools_to_run = yaml.safe_load(json_str)
-                # Naive strip out of the JSON block to leave just the speech
-                clean_speech = json_string.replace(json_str, "").replace("```json", "").replace("```", "").strip()
+                # Strip the first occurrence of the JSON block from the speech
+                clean_speech = re.sub(re.escape(json_str), "", json_string, count=1)
+                clean_speech = re.sub(r"```json|```", "", clean_speech).strip()
                 if not isinstance(tools_to_run, list):
                     tools_to_run = [tools_to_run] if tools_to_run else []
             except Exception as e:
