@@ -59,13 +59,19 @@ MODEL_REGISTRY: Dict[str, ModelConfig] = {
         "provider": "bytez",
         "strengths": ["chat", "speed", "general"],
         "max_tokens": 8192
+    },
+    "bytez-qwen-coder": {
+        "id": "Qwen/Qwen2.5-Coder-32B-Instruct",
+        "provider": "bytez",
+        "strengths": ["code", "speed", "reasoning"],
+        "max_tokens": 8192
     }
 }
 
 # Task-to-Model mapping strategies
 DEFAULT_TASK_PREFERENCES = {
     "Code": {
-        "primary": ["gpt-4.1"],
+        "primary": ["bytez-qwen-coder", "gpt-4.1"],
         "fallback": ["claude-sonnet", "claude-haiku", "gemini-pro", "bytez-llama"]
     },
     "Chat": {
