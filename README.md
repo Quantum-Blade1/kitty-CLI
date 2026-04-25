@@ -173,6 +173,46 @@ sequenceDiagram
 
 ---
 
+## Visual Intelligence
+
+KittyCode doesn't just talk—she visualizes. Using integrated TUI components, Kitty can render structured data and hierarchies directly in your terminal to explain complex concepts.
+
+### Key Visual Tools:
+- **Hierarchical Trees**: Automatically maps out complex structures like file systems, logic flows, or class hierarchies.
+- **Data Tables**: Generates beautiful, styled tables for feature comparisons or structured data analysis.
+- **Bar Charts**: Renders Unicode-based bar charts for comparing performance, metrics, or popularity.
+
+```text
+╭───────────────────────────────────────────────────╮
+│ show me a tree diagram of the kittycode structure │
+╰────────────────────────────────────────── user ───╯
+[kruby]chatting...[/kruby]
+
+ ^^ Work Log:
+   draw_tree: kittycode structure
+
+  kittycode
+  ├── agent
+  │   ├── planner.py
+  │   └── debate.py
+  ├── models
+  │   ├── router.py
+  │   └── health.py
+  └── tools
+      ├── fs_tools.py
+      └── viz_tools.py
+
+ฅ^•ﻌ•^ฅ Here is the structural map of my core logic! 
+Everything is modular and organized for maximum efficiency. Nya~!
+```
+
+### Advanced Synthesis
+
+Kitty can combine her internal architectural knowledge with visualization for "deep dives." For example, asking her to *"Analyze the internal architecture of the Quantum Router and compare model statuses"* will trigger both a hierarchical tree of her routing components and a formatted table comparing **Healthy**, **Degraded**, and **Failed** model behaviors—all in a single interaction.
+
+
+---
+
 ## Security Policies
 
 - **Subprocess Guardrails**: Terminal commands executed via `run_cmd` are strictly timed out (60s) and screened against a predefined blocked patterns list (e.g., `rm -rf`, `&&`, `;`).
