@@ -111,7 +111,7 @@ def observe_command(command_name: str):
 
 def typewriter_stream(text: str, logs: List[str] | None = None) -> None:
     displayed = ""
-    with Live(auto_refresh=True, console=console, transient=True) as live:
+    with Live(auto_refresh=True, console=console) as live:
         for char in text:
             displayed += char
             live.update(
@@ -271,9 +271,9 @@ def run_app() -> None:
         kitty.memory.save()
 
     refresh_thought()
+    show_screen()
 
     while state.running:
-        show_screen()
         try:
             user_input = console.input(f"\n[kruby]>[/kruby] [kmuted]talk to kitty({state.current_mode.lower()})...[/kmuted] ").strip()
         except EOFError:
@@ -287,11 +287,13 @@ def run_app() -> None:
         if low in mode_map:
             state.current_mode = mode_map[low]
             refresh_thought()
+            show_screen()
             continue
 
         if low in ["shift", "/", "menu"]:
             if show_mode_menu():
                 refresh_thought()
+                show_screen()
             continue
 
         if low in ["exit", "quit", "0"]:
@@ -312,7 +314,7 @@ def run_app() -> None:
             continue
 
         state.histories[state.current_mode].append(("user", user_input))
-        show_screen()
+        console.print(render_bubble("user", user_input, user_name=state.user_name))
 
         if state.current_mode == "Chat":
             with console.status("[kruby]chatting...[/kruby]", spinner="dots"):
@@ -342,7 +344,6 @@ def run_app() -> None:
                         resp, actions, task_name = kitty.execute_next_step(status_obj)
                     typewriter_stream(resp, logs=[f"Task: {task_name}"] + actions)
                     state.histories[state.current_mode].append(("kitty", resp, actions))
-                    show_screen()
                     step_count += 1
 
                 with console.status("[kmuted]Wrapping up...[/kmuted]", spinner="dots"):
