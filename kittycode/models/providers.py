@@ -39,7 +39,20 @@ class BytezProvider(BaseProvider):
         model = self._get_model(model_id)
         if model is None:
             raise RuntimeError("Provider client not initialized.")
-        return model.run(prompt, params=params or {})
+        
+        # Format prompt if it's a list (chat history)
+        if isinstance(prompt, list):
+            # Basic chat template for Bytez/HF models
+            lines = []
+            for msg in prompt:
+                role = msg.get("role", "user").upper()
+                content = msg.get("content", "")
+                lines.append(f"{role}: {content}")
+            real_prompt = "\n".join(lines) + "\nASSISTANT:"
+        else:
+            real_prompt = str(prompt)
+
+        return model.run(real_prompt, params=params or {})
 
 class GeminiProvider(BaseProvider):
     def __init__(self, api_key: str):

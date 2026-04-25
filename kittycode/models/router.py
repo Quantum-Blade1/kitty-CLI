@@ -86,8 +86,18 @@ class ModelRouter:
         prefs = TASK_PREFERENCES.get(task_type, TASK_PREFERENCES["Chat"])
         base_list = prefs["primary"] + prefs["fallback"]
 
-        # Deterministic health gate first (remove degraded models)
-        viable = build_routing_chain(base_list, self.health)
+        # Filter by provider availability (SDK key present)
+        available = []
+        for m in base_list:
+            reg = MODEL_REGISTRY.get(m)
+            if reg and self._resolve_provider(reg.get("provider", "bytez")):
+                available.append(m)
+
+        if not available:
+            return []
+
+        # Deterministic health gate
+        viable = build_routing_chain(available, self.health)
 
         # Quantum-inspired ordering of viable models
         return quantum_select(viable, self.health, task_type, self._router_log)
