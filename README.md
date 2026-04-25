@@ -255,45 +255,53 @@ Here is a typical interaction with Kitty in **Chat Mode**, showcasing her person
 
 ### Code Mode (Autonomous Orchestration)
 
-In **Code Mode**, Kitty goes beyond conversation. She breaks down complex tasks into a plan, manages a task queue, and executes tools autonomously while keeping you in the loop.
+In **Code Mode**, Kitty goes beyond simple conversation. She breaks down complex, multi-stage projects into logical plans, manages a task queue, and executes tools autonomously while providing deep technical explanations for each step.
+
+#### Example 1: Quantum Algorithm Implementation
+Kitty can handle high-level research tasks, such as simulating complex quantum circuits from first principles.
 
 ```text
-╭──────────────────────────────────╮
-│ setup a basic python hello world │
-╰────────────────────────── user ──╯
+╭───────────────────────────────────────────────────╮
+│ implement a simplified shor's algorithm simulation │
+╰────────────────────────────────────────── user ───╯
 [kruby]orchestrating...[/kruby]
 
 ╭─  ───────────────────────────────────────────────────────────────────────────────╮
-│ Task: Create 'src' directory                                                     │
-│ ฅ^•ﻌ•^ฅ I've created a plan to set up your Python project!                       │
-│                                                                                  │
-│ 1. Create a `src` directory.                                                     │
-│ 2. Write a `hello.py` file with a greeting.                                      │
-│ 3. Run the script to verify everything works.                                    │
-│                                                                                  │
-│ ^^ Work Log:                                                                     │
-│   Task: Create 'src' directory                                                   │
-│   mkdir: C:\start\src                                                            │
-╰──────────────────────────────────────────────────────────────────────────────────╯
-
-╭─  ───────────────────────────────────────────────────────────────────────────────╮
-│ Task: Write 'hello.py'                                                           │
-│ ฅ^•ﻌ•^ฅ Writing the code now!                                                    │
+│ Task: Implement Quantum Phase Estimation (QPE)                                   │
+│ ฅ^•ﻌ•^ฅ I'm building the core of Shor's algorithm! We'll start with the          │
+│ QPE module, which is essential for finding the period of the function.           │
+│ I'll use a modular exponentiation approach to simulate the quantum gates         │
+│ using unitary matrices to ensure we stay within the Hilbert space.               │
 │                                                                                  │
 │ ^^ Work Log:                                                                     │
-│   write: C:\start\src\hello.py                                                   │
-╰──────────────────────────────────────────────────────────────────────────────────╯
-
-╭─  ───────────────────────────────────────────────────────────────────────────────╮
-│ Task: Run script                                                                 │
-│ ฅ^•ﻌ•^ฅ All done! I ran the script and it says "Hello from KittyCode!"           │
-│                                                                                  │
-│ ^^ Work Log:                                                                     │
-│   run_cmd: python src/hello.py                                                   │
-│   Output: Hello from KittyCode!                                                  │
+│   write: quantum/shors_core.py                                                   │
+│   draw_tree: QPE Logic Flow                                                      │
 ╰──────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-Kitty's responses are designed to be helpful, transparent, and slightly whimsical, ensuring a premium "companion" experience while maintaining professional-grade tool execution.
+#### Example 2: Machine Learning from Scratch
+Kitty is capable of building complex mathematical models and visualizing their architecture during the build process.
+
+```text
+╭───────────────────────────────────────────────────╮
+│ build a neural network from scratch in python     │
+╰────────────────────────────────────────── user ───╯
+[kruby]orchestrating...[/kruby]
+
+╭─  ───────────────────────────────────────────────────────────────────────────────╮
+│ Task: Implement Backpropagation Engine                                           │
+│ ฅ^•ﻌ•^ฅ Time to build the "brain"! I'm implementing the chain rule              │
+│ manually to calculate gradients for our weight updates. I'll include              │
+│ a custom Sigmoid derivative for the activation gradient to ensure                │
+│ smooth convergence during the training loop.                                     │
+│                                                                                  │
+│ ^^ Work Log:                                                                     │
+│   write: ml/engine.py                                                            │
+│   draw_tree: Neural Network Architecture                                         │
+╰──────────────────────────────────────────────────────────────────────────────────╯
+```
+
+Kitty's responses are designed to be helpful, transparent, and technically insightful, ensuring a premium "companion" experience while maintaining professional-grade tool execution.
+
 
 
