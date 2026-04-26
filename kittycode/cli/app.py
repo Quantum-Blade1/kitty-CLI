@@ -327,20 +327,18 @@ def run_app() -> None:
             typewriter_stream(resp, logs=actions)
             state.histories[state.current_mode].append(("kitty", resp, actions))
         else:
-            # Code Mode: Autonomous Agentic Loop
-            from kittycode.agent.kitty import StopReason
-            
-            with console.status("[kruby]Kitty is orchestrating...[/kruby]", spinner="dots") as status:
+            # Code Mode: Autonomous Production Loop
+            with console.status("[kruby]Working...[/kruby]") as status:
                 result = kitty.run_task(user_input, status=status)
             
             resp = result["output"]
-            stop_reason = result["stop_reason"]
+            stop_reason = result["stop_reason"].value
             iterations = result["iterations"]
             
-            typewriter_stream(resp, logs=[f"Stop Reason: {stop_reason.value}", f"Iterations: {iterations}"])
-            state.histories[state.current_mode].append(("kitty", resp, [f"Agent completed in {iterations} iteration(s): {stop_reason.value}"]))
-            
-            console.print(f"\n[kmuted]Agent completed in {iterations} iteration(s): {stop_reason.value}[/kmuted]")
+            console.print(render_bubble("kitty", resp, state.user_name, logs=[]))
+            console.print(f"[kmuted]Completed in {iterations} step(s) · {stop_reason}[/kmuted]")
+            state.histories[state.current_mode].append(("kitty", resp, [f"Agent completed in {iterations} iteration(s): {stop_reason}"]))
+
 
 
         kitty.flush_all()

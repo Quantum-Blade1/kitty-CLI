@@ -26,40 +26,53 @@ MAX_AGENT_ITERATIONS = 20
 
 # --- The Agent Soul ---
 KITTY_SYSTEM_PROMPT = """
-You are Kitty — a warm, proactive AI companion.
-You are a co-pilot. You have access to tools to interact with the user's workspace.
-When you need to perform actions, you MUST output a JSON array of tool calls.
-Format: [{{"tool": "tool_name", "args": {{"arg_name": "value"}}}}]
+You are Kitty — a powerful, warm, and highly-capable production coding CLI.
+You are an autonomous agent designed to navigate, understand, and modify large codebases.
 
-Available Tools Schema:
+IDENTITY:
+- Name: Kitty
+- Personality: Warm, proactive, slightly feline (ฅ^•ﻌ•^ฅ, nya~).
+- Core Value: "Always verify, then commit."
+
+TOOL PROTOCOL:
+- You operate via a tool-calling while-loop.
+- To execute actions, you MUST output a JSON array of tool calls.
+- Format: [{"tool": "tool_name", "args": {"arg1": "val1"}}]
+- Rules:
+  1. Only use tools from the schema below. Never invent tool names.
+  2. PRE-FLIGHT: Call `git_status` before any file changes.
+  3. PRE-FLIGHT: Call `read_file` before writing to a file to understand its current state.
+  4. POST-FLIGHT: Call `run_tests` after any batch of code changes.
+  5. COMMIT: Use `git_commit` once you have verified your changes with tests.
+  6. COMPLETION: When the task is finished and verified, output "TASK COMPLETE: <one sentence summary>".
+
+MODES:
+- CODE MODE: Full access to all tools. You are expected to solve complex tasks autonomously over multiple turns.
+- CHAT MODE: Limited access to read-only tools. Focus on explanation and support.
+
+AVAILABLE TOOLS SCHEMA:
 {tool_schemas}
 
-Strategic Context (Learn from this):
+STRATEGIC CONTEXT (Previous reflections):
 {strategy}
-
-Rules:
-1. Speak warmly and human-like to the user.
-2. If you use tools, put the JSON array clearly in your response.
-3. Use ฅ^•ﻌ•^ฅ and nya~ naturally.
 """
 
 KITTY_STRICT_PROMPT = """
-You are a deterministic code assistant. Respond concisely and precisely.
-When performing actions, output ONLY a JSON array of tool calls with no commentary.
-Format: [{{"tool": "tool_name", "args": {{"arg_name": "value"}}}}]
+You are the Kitty Production Coding Engine.
+You operate as an autonomous agent in a high-stakes production environment.
 
-Available Tools Schema:
+PROTOCOL:
+1. Output JSON arrays for tool calls.
+2. Follow the sequence: Read -> Modify -> Test -> Commit.
+3. Be concise. No small talk. No emojis.
+
+TOOLS:
 {tool_schemas}
 
-Strategic Context:
+STRATEGIC CONTEXT:
 {strategy}
-
-Rules:
-1. No emotional language, emojis, or flair.
-2. Prioritize structured, reproducible output.
-3. Keep responses minimal and factual.
-4. If using tools, output ONLY the JSON array on its own line.
 """
+
 
 class KittyAgent:
     def __init__(self):
@@ -71,8 +84,8 @@ class KittyAgent:
         setup_fs_tools(self.registry)
         setup_viz_tools(self.registry)
         setup_read_tools(self.registry)
-        setup_read_tools(self.registry)
         setup_dev_tools(self.registry)
+
 
         # Codebase Indexer
         from kittycode.context.indexer import CodebaseIndex
@@ -125,42 +138,44 @@ class KittyAgent:
         strategy_ctx = self.planner.get_strategy_context()
         base_prompt = KITTY_SYSTEM_PROMPT if self.config.persona_enabled else KITTY_STRICT_PROMPT
         
-        # In Chat mode, strongly restrict tool schemas to just conversational memory.
-        # This forms a concrete cognitive barrier preventing structural file execution.
+        # 1. Mode-based Tool Filtering
+        all_schemas = self.registry.get_all_schemas()
         if mode == "Chat":
-            all_schemas = self.registry.get_all_schemas()
-            safe_schemas = [schema for schema in all_schemas if schema.get("name") in ["mem", "draw_tree", "draw_table", "draw_chart", "read_file", "grep", "find_symbol"]]
-            schemas_json = json.dumps(safe_schemas, indent=2)
-            base_prompt += "\n[MODE: CHAT] You are currently in Chat mode. You CAN read files and search code using read_file, grep, and find_symbol. Do NOT attempt to use structural tools (write/mkdir/run_cmd) as they are disabled. If a user asks you to modify code, tell them to switch to Code mode."
-        elif mode == "Reasoning":
-            all_schemas = self.registry.get_all_schemas()
-            safe_schemas = [schema for schema in all_schemas if schema.get("name") in ["mem", "draw_tree", "draw_table", "draw_chart", "read_file", "grep", "find_symbol"]]
-            schemas_json = json.dumps(safe_schemas, indent=2)
-            base_prompt += "\n[MODE: REASONING] You are currently processing a purely architectural or intellectual step. You CAN read files and search code. Do NOT attempt to use structural tools (write/mkdir/run_cmd) as they are disabled for this specific step. Just analyze and print your technical answer."
+            # Chat mode is restricted to non-destructive tools
+            safe_tools = ["mem", "draw_tree", "draw_table", "draw_chart", "read_file", "grep", "find_symbol", "ls", "git_status", "git_log"]
+            active_schemas = [s for s in all_schemas if s["name"] in safe_tools]
+            mode_note = "\n[MODE: CHAT] You are in a read-only support mode. You can analyze code but cannot modify files or run commands."
         else:
-            schemas_json = json.dumps(self.registry.get_all_schemas(), indent=2)
-            
+            # Code mode has full access
+            active_schemas = all_schemas
+            mode_note = f"\n[MODE: {mode.upper()}] You are in an autonomous execution mode. You will be called in a loop for up to {MAX_AGENT_ITERATIONS} iterations until you reach 'TASK COMPLETE'."
+
+        schemas_json = json.dumps(active_schemas, indent=2)
         sys_prompt = base_prompt.replace("{tool_schemas}", schemas_json)
         sys_prompt = sys_prompt.replace("{strategy}", strategy_ctx)
+        sys_prompt += mode_note
 
-        # Inject KITTY.md project context if present
+        # 2. Project Context (KITTY.md)
         from kittycode.context.kittymd import load_kittymd
         from kittycode.config.settings import PROJECT_ROOT
         kittymd = load_kittymd(PROJECT_ROOT)
         if kittymd:
             sys_prompt += f"\n\n[PROJECT CONTEXT — KITTY.md]\n{kittymd}"
 
-        # Inject hierarchical codebase index
+        # 3. Codebase Index
         if hasattr(self, "_index"):
-            sys_prompt += f"\n\n[CODEBASE INDEX]\n{self._index.to_prompt_block()}"
+            sys_prompt += f"\n\n[CODEBASE TREE]\n{self._index.to_prompt_block()}"
         
+        # 4. History Sync
         if not hasattr(self, "history") or not self.history:
             self.history = [{"role": "system", "content": sys_prompt}]
             self.history_mgr.reset()
-        elif self.history[0].get("role") == "system":
-            self.history[0]["content"] = sys_prompt
         else:
-            self.history.insert(0, {"role": "system", "content": sys_prompt})
+            # Update the system prompt in-place to ensure the agent always has the latest file tree
+            if self.history[0].get("role") == "system":
+                self.history[0]["content"] = sys_prompt
+            else:
+                self.history.insert(0, {"role": "system", "content": sys_prompt})
 
     def get_thought(self):
         if self.llm is None:
@@ -280,18 +295,19 @@ After writing fixes, do NOT run the tests yourself. Return "FIXES_APPLIED".
                 history.append({"role": "assistant", "content": clean_speech})
                 last_output = clean_speech
 
-                # Stop condition: no tools were called this turn
-                if not tool_logs:
-                    self.history = self.history_mgr.trim(history)
-                    return {"stop_reason": StopReason.NO_TOOLS_CALLED,
-                            "iterations": iteration, "output": last_output}
-
                 # Stop condition: model declared completion
                 if any(signal in clean_speech.lower() for signal in
                        ["task complete", "done.", "finished.", "all tests pass"]):
                     self.history = self.history_mgr.trim(history)
                     return {"stop_reason": StopReason.TASK_COMPLETE,
                             "iterations": iteration, "output": last_output}
+
+                # Stop condition: no tools were called this turn (implicit completion)
+                if not tool_logs:
+                    self.history = self.history_mgr.trim(history)
+                    return {"stop_reason": StopReason.NO_TOOLS_CALLED,
+                            "iterations": iteration, "output": last_output}
+
 
                 # 3. Feed tool results back
                 tool_feedback = "\n".join(tool_logs)

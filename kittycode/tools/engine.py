@@ -116,8 +116,9 @@ class ToolEngine:
             if tool_def["destructive"]:
                 from kittycode.cli.ui import console
                 
-                # Skip generic confirmation for 'write' as it has its own rich diff logic
-                if tool_name == "write":
+                # Skip generic confirmation for tools that handle their own prompts (write)
+                # or tools that are specifically intended for automated operations (write_raw).
+                if tool_name in ["write", "write_raw"]:
                     pass
                 else:
                     confirm_msg = f"\n[bold red]⚠️  Kitty wants to {tool_name}![/bold red]\n[yellow]Arguments: {args}[/yellow]\nDo you want to allow this?"
@@ -136,21 +137,7 @@ class ToolEngine:
                     if not is_allowed:
                         actions_taken.append(f"Blocked: User denied {tool_name}")
                         continue
-                
-                # Use the explicitly passed status object, or fallback to inspecting the console
-                active_status = status if status else (hasattr(console, "_status") and console._status)
-                if active_status:
-                    active_status.stop()
-                    
-                is_allowed = Confirm.ask(confirm_msg, default=False)
-                
-                # Resume status spinner if it was running
-                if active_status:
-                    active_status.start()
-                    
-                if not is_allowed:
-                    actions_taken.append(f"Blocked: User denied {tool_name}")
-                    continue
+
                     
             # Execution
             try:

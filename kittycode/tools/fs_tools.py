@@ -179,12 +179,22 @@ def setup_fs_tools(registry: ToolRegistry):
     )
 
     registry.register(
+        name="write_raw",
+        description="Writes content to a file without showing diffs or prompting for confirmation. Use ONLY for automated multi-step operations.",
+        parameters={"path": "String. The file path.", "content": "String. The content to write."},
+        func=action_write_raw,
+        destructive=True
+    )
+
+    registry.register(
         name="ls",
         description="Lists the contents of a directory.",
         parameters={"path": "String. The directory path to list."},
         func=action_ls,
         destructive=False
     )
+
+
 
     registry.register(
         name="ls_tree",
