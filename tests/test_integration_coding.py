@@ -10,10 +10,11 @@ def test_agent_writes_and_reads_file(tmp_path, monkeypatch):
     """Full agent turn: write a file, then read it back."""
     monkeypatch.chdir(tmp_path)
     
-    # Mock the LLM to return a write tool call, then a read tool call, then done
+    # Mock the LLM to return a Plan first, then tool calls for each step
     responses = [
-        '[{"tool":"write_raw","args":{"path":"hello.py","content":"print(1)"}}]',
-        '[{"tool":"read_file","args":{"path":"hello.py"}}]',
+        '{"scope": "Project", "reasoning": "Plan", "queue": [{"step": "write", "executable": true}, {"step": "read", "executable": true}]}', # Planning turn
+        '[{"tool":"write_raw","args":{"path":"hello.py","content":"print(1)"}}]', # Step 1 turn
+        '[{"tool":"read_file","args":{"path":"hello.py"}}]', # Step 2 turn
         "TASK COMPLETE: wrote and verified hello.py"
     ]
     
@@ -26,6 +27,7 @@ def test_agent_writes_and_reads_file(tmp_path, monkeypatch):
         r.error = None
         call_count += 1
         return r, "mock-model"
+
 
     # Important: SandboxValidator uses PROJECT_ROOT from settings.
     import kittycode.config.settings
@@ -48,4 +50,5 @@ def test_agent_writes_and_reads_file(tmp_path, monkeypatch):
     assert (tmp_path / "hello.py").exists()
     assert (tmp_path / "hello.py").read_text(encoding="utf-8").strip() == "print(1)"
     assert result["stop_reason"] == StopReason.TASK_COMPLETE
-    assert result["iterations"] == 3
+    assert result["iterations"] == 2
+

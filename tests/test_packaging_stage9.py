@@ -8,7 +8,8 @@ def test_pyproject_has_cli_script():
     assert pyproject.exists()
     data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
     project = data["project"]
-    assert project["name"] == "kittycode"
+    assert project["name"] == "kittycode-agent"
+
     assert "kitty" in project["scripts"]
     assert project["scripts"]["kitty"] == "kittycode.cli.app:app"
 

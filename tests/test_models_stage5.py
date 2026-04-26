@@ -18,8 +18,9 @@ def test_set_and_reset_preferences():
 
     reset_preferences(persist=False)
     reset_now = get_preferences()
-    assert "bytez-qwen-coder" in reset_now["Code"]["primary"]
-    assert "gpt-4.1" in reset_now["Code"]["primary"]
+    assert "qwen-coder" in reset_now["Code"]["primary"]
+    assert "gpt-4o" in reset_now["Code"]["primary"]
+
 
     # restore prior state for isolation
     if original["Code"]["primary"] != reset_now["Code"]["primary"]:

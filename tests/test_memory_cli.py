@@ -20,8 +20,9 @@ _shared_mm = MemoryManager()
 
 @patch("kittycode.cli.app.get_memory_manager", return_value=_shared_mm)
 def test_memory_add_and_find_json(mock_mm):
-    key = f"stage4key{uuid.uuid4().hex[:8]}"          # no underscores — clean token
-    value = f"stage4 memory value {uuid.uuid4().hex[:6]}"  # unique value
+    uid = uuid.uuid4().hex
+    key = f"stage4key{uid[:8]}"          # no underscores — clean token
+    value = f"stage4 memory value {uid[:6]}"  # unique value
 
     add_res = runner.invoke(
         app,
@@ -30,7 +31,8 @@ def test_memory_add_and_find_json(mock_mm):
     assert add_res.exit_code == 0
     assert _json(add_res)["ok"] is True
 
-    find_res = runner.invoke(app, ["--json", "memory", "find", "stage4 memory value", "--limit", "5"])
+    find_res = runner.invoke(app, ["--json", "memory", "find", value, "--limit", "5"])
+
     assert find_res.exit_code == 0
     find_payload = _json(find_res)
     assert find_payload["ok"] is True
