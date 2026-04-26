@@ -74,6 +74,7 @@ KittyCode utilizes `Typer` and `Rich` to provide a beautiful, structured termina
 - `kitty stats` : View the observability dashboard with command latency and failure rates.
 - `kitty config --set-theme matrix` : View and customize the UI theme.
 - `kitty version` : Show installed version.
+- `kitty audit` : Verify the tamper-evident security audit chain.
 
 ### Model Routing Control
 - `kitty models --set-primary gpt-4.1` : Override the default primary model for the session.
@@ -127,6 +128,13 @@ graph TD
         ToolEngine --> Safety[Safety Critic]
         ToolEngine --> Sandbox[Sandbox Validator]
         Safety --> FS[File System]
+        Safety --> Audit[Audit Chain]
+        Memory --> Vault[Memory Vault]
+    end
+
+    subgraph Security Layer
+        RNG[Quantum RNG] --> Audit
+        RNG --> Vault
     end
 
     Agent --> Router
@@ -187,6 +195,54 @@ sequenceDiagram
 
 ---
 
+## Advanced Security Architecture
+
+KittyCode implements a multi-layered, production-grade security architecture designed to prevent logic tampering and protect sensitive user data.
+
+### 1. Quantum-Inspired RNG (`rng.py`)
+At the foundation lies a hybrid **Quantum-Inspired CSPRNG**. It simulates qubit superposition and interference to generate high-entropy seeds, which are then XOR-mixed with the OS's cryptographic entropy (`os.urandom`). 
+- **Purpose**: Generates immutable keys for log signing and memory encryption.
+- **Heuristic**: Uses wave-function collapse logic to ensure non-deterministic seed generation.
+
+### 2. Tamper-Evident Audit Chain (`audit_chain.py`)
+Every high-risk decision (Allowed/Blocked) is recorded in a **Hash-Chained Audit Log**.
+- **The Chain**: Each entry (block) contains the hash of the previous entry.
+- **Integrity**: Any manual modification to the log file breaks the HMAC-SHA256 signatures, detectable via `kitty audit`.
+- **Flow**:
+  ```mermaid
+  sequenceDiagram
+      participant Critic as SafetyCritic
+      participant Chain as AuditChain
+      participant Log as audit_chain.jsonl
+      
+      Critic->>Critic: Evaluate Tool (e.g. run_cmd)
+      Critic->>Chain: append(EVENT, Data)
+      Chain->>Chain: Compute HMAC(prev_hash + data)
+      Chain->>Log: Write Block
+      Note over Log: Log is now cryptographically linked
+  ```
+
+### 3. Encrypted Memory Vault (`vault.py`)
+Sensitive facts (passwords, identity details, API keys) are never stored in plaintext.
+- **Encryption**: Uses AES-256-GCM (Fernet) authenticated encryption.
+- **Key Derivation**: Keys are uniquely derived per-machine using the stable Machine UUID + PBKDF2-HMAC-SHA256 (200,000 iterations).
+- **Auto-Protection**: Memories tagged as `identity` or `secret` are encrypted before hitting the disk.
+
+---
+
+## Security Use Cases
+
+### Case 1: Detect Shell Injection Tampering
+If an attacker attempts to manually edit the `.kitty/audit_chain.jsonl` to hide a blocked malicious command, the `kitty audit` command will immediately flag the index where the chain was broken.
+
+### Case 2: Machine-Locked Memory
+If the KittyCode project folder is moved to a different computer, the `MemoryVault` will fail to decrypt sensitive facts because the hardware UUID used for key derivation will not match. This prevents "state-snatching" attacks.
+
+### Case 3: Quantum-Resistant Key Rotation
+By using the `QuantumRNG` for key derivation, KittyCode ensures that the underlying entropy used for internal signatures is significantly more complex than standard pseudo-random generators, providing an extra layer of defense against entropy-exhaustion attacks.
+
+---
+
 ## Visual Intelligence
 
 KittyCode doesn't just talk—she visualizes. Using integrated TUI components, Kitty can render structured data and hierarchies directly in your terminal to explain complex concepts.
@@ -231,6 +287,8 @@ Kitty can combine her internal architectural knowledge with visualization for "d
 
 - **Subprocess Guardrails**: Terminal commands executed via `run_cmd` are strictly timed out (60s) and screened against a predefined blocked patterns list (e.g., `rm -rf`, `&&`, `;`).
 - **Path Confinement**: All tool actions require absolute paths validated against the `SandboxValidator`, ensuring no traversal (`../`) escapes the project boundaries.
+- **Audit Transparency**: Use `kitty audit` to verify the cryptographic integrity of the execution logs.
+- **At-Rest Encryption**: Sensitive memory (categories: `identity`, `secret`) is encrypted with AES-256-GCM linked to your hardware ID.
 - **Observability**: Execution errors and structural exceptions are piped to local `.kitty/` JSON logs for safe post-mortem review.
 
 ---
