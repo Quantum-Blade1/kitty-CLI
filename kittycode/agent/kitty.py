@@ -122,6 +122,13 @@ class KittyAgent:
             
         sys_prompt = base_prompt.replace("{tool_schemas}", schemas_json)
         sys_prompt = sys_prompt.replace("{strategy}", strategy_ctx)
+
+        # Inject KITTY.md project context if present
+        from kittycode.context.kittymd import load_kittymd
+        from kittycode.config.settings import PROJECT_ROOT
+        kittymd = load_kittymd(PROJECT_ROOT)
+        if kittymd:
+            sys_prompt += f"\n\n[PROJECT CONTEXT — KITTY.md]\n{kittymd}"
         
         if not hasattr(self, "history") or not self.history:
             self.history = [{"role": "system", "content": sys_prompt}]

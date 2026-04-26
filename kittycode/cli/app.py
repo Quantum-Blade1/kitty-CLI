@@ -913,6 +913,33 @@ def readiness() -> None:
     raise typer.Exit(code=EXIT_OK if ok else EXIT_USAGE_ERROR)
 
 
+@app.command("init-context", help="Generate a starter KITTY.md for this project.")
+@observe_command("init-context")
+def init_context(
+    force: bool = typer.Option(False, "--force", help="Overwrite existing KITTY.md."),
+) -> None:
+    """Generate a starter KITTY.md by auto-detecting project structure."""
+    from kittycode.context.kittymd import generate_kittymd_template
+
+    path = PROJECT_ROOT / "KITTY.md"
+
+    if path.exists() and not force:
+        if is_json_mode():
+            emit_json({"ok": False, "error": "KITTY.md already exists. Use --force to overwrite."})
+        else:
+            console.print("[yellow]KITTY.md already exists. Use --force to overwrite.[/yellow]")
+        raise typer.Exit(code=EXIT_USAGE_ERROR)
+
+    content = generate_kittymd_template(PROJECT_ROOT)
+    path.write_text(content, encoding="utf-8")
+
+    if is_json_mode():
+        emit_json({"ok": True, "path": str(path), "size": len(content)})
+    else:
+        console.print(f"[green]Created KITTY.md at {path}[/green]")
+        console.print("Edit it to add your coding standards and test command.")
+
+
 @app.callback(invoke_without_command=True)
 def main_loop(
     ctx: typer.Context,
