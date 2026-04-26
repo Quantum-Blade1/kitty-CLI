@@ -114,10 +114,31 @@ class ToolEngine:
 
             # Destructive confirmation
             if tool_def["destructive"]:
-                confirm_msg = f"\n[bold red]⚠️  Kitty wants to {tool_name}![/bold red]\n[yellow]Arguments: {args}[/yellow]\nDo you want to allow this?"
-                
-                # Fetch global console to suspend spinner during prompt
                 from kittycode.cli.ui import console
+                
+                # Special handling for 'write' to show a diff
+                showed_diff = False
+                if tool_name == "write" and "path" in args:
+                    target_path = args["path"]
+                    new_content = args.get("content", "")
+                    if os.path.exists(target_path):
+                        try:
+                            with open(target_path, 'r', encoding='utf-8') as f:
+                                old_content = f.read()
+                            
+                            from kittycode.utils.diff import generate_unified_diff, render_diff_panel
+                            diff_text = generate_unified_diff(target_path, old_content, new_content)
+                            if diff_text != "[no changes]":
+                                panel = render_diff_panel(target_path, diff_text)
+                                console.print(panel)
+                                showed_diff = True
+                        except Exception as e:
+                            logger.warning(f"Failed to generate diff for {target_path}: {e}")
+
+                if not showed_diff:
+                    confirm_msg = f"\n[bold red]⚠️  Kitty wants to {tool_name}![/bold red]\n[yellow]Arguments: {args}[/yellow]\nDo you want to allow this?"
+                else:
+                    confirm_msg = f"\n[bold red]⚠️  Apply these changes?[/bold red]"
                 
                 # Use the explicitly passed status object, or fallback to inspecting the console
                 active_status = status if status else (hasattr(console, "_status") and console._status)

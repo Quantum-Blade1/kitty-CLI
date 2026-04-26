@@ -33,6 +33,49 @@ def action_ls(path: str) -> str:
     except Exception as e:
         return f"Failed to list directory: {str(e)}"
 
+def action_ls_tree(path: str = ".", max_depth: int = 3) -> str:
+    """Returns a visual tree of the directory structure."""
+    try:
+        from rich.tree import Tree
+        from rich.console import Console
+        from io import StringIO
+        
+        root_path = os.path.abspath(path)
+        if not os.path.exists(root_path):
+            return f"Error: {path} not found"
+            
+        tree = Tree(f"[bold blue]{os.path.basename(root_path)}/[/bold blue]")
+        
+        def _build_tree(current_path: str, current_tree: Tree, depth: int):
+            if depth > max_depth:
+                return
+            
+            try:
+                # Sort: directories first, then files
+                items = sorted(os.listdir(current_path), key=lambda x: (not os.path.isdir(os.path.join(current_path, x)), x.lower()))
+            except Exception:
+                return
+                
+            for item in items:
+                if item.startswith(".") or item == "__pycache__" or item == "node_modules":
+                    continue
+                    
+                full_path = os.path.join(current_path, item)
+                if os.path.isdir(full_path):
+                    node = current_tree.add(f"[bold blue]{item}/[/bold blue]")
+                    _build_tree(full_path, node, depth + 1)
+                else:
+                    current_tree.add(item)
+                    
+        _build_tree(root_path, tree, 1)
+        
+        # Capture Rich output
+        output_console = Console(file=StringIO(), force_terminal=True, width=80)
+        output_console.print(tree)
+        return output_console.file.getvalue()
+    except Exception as e:
+        return f"Failed to generate tree: {str(e)}"
+
 def action_run_cmd(command: str) -> str:
     try:
         from kittycode.cli.ui import console
@@ -97,6 +140,14 @@ def setup_fs_tools(registry: ToolRegistry):
         description="Lists the contents of a directory.",
         parameters={"path": "String. The directory path to list."},
         func=action_ls,
+        destructive=False
+    )
+
+    registry.register(
+        name="ls_tree",
+        description="Displays a visual tree of the codebase structure.",
+        parameters={"path": "String (optional). The root path. Default: '.'", "max_depth": "Integer (optional). Max depth to recurse. Default: 3."},
+        func=action_ls_tree,
         destructive=False
     )
 
