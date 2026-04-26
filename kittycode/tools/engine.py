@@ -116,29 +116,26 @@ class ToolEngine:
             if tool_def["destructive"]:
                 from kittycode.cli.ui import console
                 
-                # Special handling for 'write' to show a diff
-                showed_diff = False
-                if tool_name == "write" and "path" in args:
-                    target_path = args["path"]
-                    new_content = args.get("content", "")
-                    if os.path.exists(target_path):
-                        try:
-                            with open(target_path, 'r', encoding='utf-8') as f:
-                                old_content = f.read()
-                            
-                            from kittycode.utils.diff import generate_unified_diff, render_diff_panel
-                            diff_text = generate_unified_diff(target_path, old_content, new_content)
-                            if diff_text != "[no changes]":
-                                panel = render_diff_panel(target_path, diff_text)
-                                console.print(panel)
-                                showed_diff = True
-                        except Exception as e:
-                            logger.warning(f"Failed to generate diff for {target_path}: {e}")
-
-                if not showed_diff:
-                    confirm_msg = f"\n[bold red]⚠️  Kitty wants to {tool_name}![/bold red]\n[yellow]Arguments: {args}[/yellow]\nDo you want to allow this?"
+                # Skip generic confirmation for 'write' as it has its own rich diff logic
+                if tool_name == "write":
+                    pass
                 else:
-                    confirm_msg = f"\n[bold red]⚠️  Apply these changes?[/bold red]"
+                    confirm_msg = f"\n[bold red]⚠️  Kitty wants to {tool_name}![/bold red]\n[yellow]Arguments: {args}[/yellow]\nDo you want to allow this?"
+                    
+                    # Use the explicitly passed status object, or fallback to inspecting the console
+                    active_status = status if status else (hasattr(console, "_status") and console._status)
+                    if active_status:
+                        active_status.stop()
+                        
+                    is_allowed = Confirm.ask(confirm_msg, default=False)
+                    
+                    # Resume status spinner if it was running
+                    if active_status:
+                        active_status.start()
+                        
+                    if not is_allowed:
+                        actions_taken.append(f"Blocked: User denied {tool_name}")
+                        continue
                 
                 # Use the explicitly passed status object, or fallback to inspecting the console
                 active_status = status if status else (hasattr(console, "_status") and console._status)

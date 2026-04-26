@@ -15,7 +15,8 @@ def action_mkdir(path: str) -> str:
     except Exception as e:
         return f"Failed to create folder: {str(e)}"
 
-def action_write(path: str, content: str = "") -> str:
+def action_write_raw(path: str, content: str = "") -> str:
+    """Internal raw write without diffs or prompts."""
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
@@ -23,6 +24,48 @@ def action_write(path: str, content: str = "") -> str:
         return f"File Written: {path}"
     except Exception as e:
         return f"Failed to write file: {str(e)}"
+
+def action_write(path: str, content: str = "", diff_mode: bool = True) -> str:
+    """Writes content to a file with unified diff preview and confirmation."""
+    from pathlib import Path
+    from rich.prompt import Confirm
+    from kittycode.cli.ui import console
+    from kittycode.utils.diff_utils import unified_diff, render_diff_rich
+
+    p = Path(path)
+    
+    if diff_mode and p.exists():
+        try:
+            old_content = p.read_text(encoding="utf-8", errors="replace")
+            if old_content == content:
+                return f"No changes: {path} is already up to date."
+            
+            diff = unified_diff(old_content, content, path)
+            console.print(f"\n[bold yellow]Proposed Changes: {path}[/bold yellow]")
+            render_diff_rich(diff)
+            
+            # Stop the Rich spinner if it's active in the console's state
+            # (In our app, we usually pass 'status' object to ToolEngine, but here we prompt directly)
+            # Typer/Rich prompts handle terminal suspension well.
+            confirmed = Confirm.ask(f"Apply these changes to {path}?", default=False)
+            if not confirmed:
+                return f"Write cancelled by user: {path}"
+        except Exception as e:
+            console.print(f"[red]Error during diff: {e}[/red]")
+            # Fallback to simple confirmation if diff fails
+            if not Confirm.ask(f"Diff failed. Overwrite {path} anyway?", default=False):
+                return f"Write cancelled by user: {path}"
+
+    elif diff_mode and not p.exists():
+        preview = "\n".join(content.splitlines()[:5])
+        console.print(f"\n[teal]New file: {path}[/teal]")
+        console.print(preview + ("\n..." if len(content.splitlines()) > 5 else ""))
+        confirmed = Confirm.ask(f"Create {path}?", default=False)
+        if not confirmed:
+            return f"Write cancelled by user: {path}"
+
+    return action_write_raw(path, content)
+
 
 def action_ls(path: str) -> str:
     try:
