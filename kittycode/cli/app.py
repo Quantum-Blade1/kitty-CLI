@@ -193,26 +193,30 @@ def select_primary_model() -> None:
     from kittycode.models.preferences import set_primary_model
 
     options = {
-        "1": "gpt-4.1",
-        "2": "claude-sonnet",
-        "3": "claude-haiku",
-        "4": "gemini-pro",
+        "1": "qwen-coder",
+        "2": "deepseek-r1",
+        "3": "gpt-4o",
+        "4": "claude-sonnet",
+        "5": "gemini-2.0",
     }
 
-    console.print("\n[bold magenta]Select primary model:[/bold magenta]")
-    console.print("  [1] GPT-4.1")
-    console.print("  [2] Claude Sonnet")
-    console.print("  [3] Claude Haiku")
-    console.print("  [4] Gemini Pro")
+    console.print("\n[bold magenta]Select Primary Lead Model:[/bold magenta]")
+    console.print("  [1] [kwhite]Qwen 2.5 Coder[/kwhite] (State-of-the-art, Specialized)")
+    console.print("  [2] [kwhite]DeepSeek-R1[/kwhite] (Maximum Reasoning, Complex Tasks)")
+    console.print("  [3] [kwhite]GPT-4o[/kwhite] (Very Stable, Balanced)")
+    console.print("  [4] [kwhite]Claude 3.7 Sonnet[/kwhite] (Elite Agentic Coding)")
+    console.print("  [5] [kwhite]Gemini 2.0 Flash[/kwhite] (Fast, Huge Context)")
 
-    choice = Prompt.ask("\n[kmuted]Enter 1-4[/kmuted]", choices=["1", "2", "3", "4"], default="1")
+    choice = Prompt.ask("\n[kmuted]Enter 1-5[/kmuted]", choices=["1", "2", "3", "4", "5"], default="1")
+
     primary = options[choice]
     prefs = set_primary_model(primary, persist=True)
 
-    console.print(f"\n[bold green]Primary locked:[/bold green] {primary}")
+    console.print(f"\n[bold green]Primary model locked:[/bold green] {primary}")
     fallback_chain = prefs["Code"]["fallback"]
-    console.print(f"[kmuted]Fallback chain: {', '.join(fallback_chain)}[/kmuted]\n")
+    console.print(f"[kmuted]Fallback routing chain: {', '.join(fallback_chain)}[/kmuted]\n")
     time.sleep(1.0)
+
 
 
 def select_theme() -> None:
@@ -242,41 +246,111 @@ def select_theme() -> None:
 
 
 def onboarding() -> None:
+    from kittycode.config.env_utils import save_env_var
     ensure_kitty()
     clear()
-    console.print(Align.center(Text("\n[kitty] Welcome to KittyCode", style="kruby")))
-    console.print(Align.center(Text("I am your coding companion. What should I call you?\n", style="ktext")))
-    name = Prompt.ask("[kruby]Name[/kruby]").strip() or "Friend"
+    console.print(Align.center(Text("\n^^ Welcome to KittyCode v2.0", style="kruby bold")))
+    console.print(Align.center(Text("The autonomous agent that works in your codebase.\n", style="ktext")))
+    
+    # 1. Identity
+    name = Prompt.ask("[kruby]What is your name?[/kruby]").strip() or "Friend"
     kitty.memory.set("user_name", name)
-    kitty.memory.save()
     state.user_name = name
-    console.print(Align.center(Text(f"\nGreat to meet you, {name}.", style="kred")))
-    time.sleep(1.0)
+    console.print(f"\n[ktext]Nya~ Nice to meet you, {name}.[/ktext]")
+    time.sleep(0.5)
+
+    # 2. Configuration
+    clear()
+    console.print(Panel("[kruby]Stage 1: Aesthetics[/kruby]\nChoose a theme that matches your soul.", border_style="kborder"))
+    select_theme()
+
+    # 3. API Keys (Critical)
+    clear()
+    console.print(Panel("[kruby]Stage 2: Intelligence[/kruby]\nKitty needs brains to work. Let's set up your keys.", border_style="kborder"))
+    
+    from kittycode.config.settings import OPENROUTER_KEY, GEMINI_KEY
+    
+    if not OPENROUTER_KEY:
+        console.print("\n[kred]Missing OpenRouter Key![/kred]")
+        console.print("[kmuted]Get one at: https://openrouter.ai/keys[/kmuted]")
+        orkey = Prompt.ask("[kruby]Enter OpenRouter API Key[/kruby]", password=True)
+        if orkey:
+            save_env_var("OPENROUTER_API_KEY", orkey)
+            console.print("[kgreen]Key saved to ~/.kittycode/.env[/kgreen]")
+
+    if not GEMINI_KEY:
+        console.print("\n[kred]Missing Gemini Key (Optional but recommended)[/kred]")
+        console.print("[kmuted]Get one at: https://aistudio.google.com/app/apikey[/kmuted]")
+        gkey = Prompt.ask("[kruby]Enter Gemini API Key (Enter to skip)[/kruby]", password=True)
+        if gkey:
+            save_env_var("GEMINI_API_KEY", gkey)
+            console.print("[kgreen]Key saved to ~/.kittycode/.env[/kgreen]")
+
+    # 4. Primary Model
+    clear()
+    console.print(Panel("[kruby]Stage 3: Default Strategy[/kruby]\nChoose which model should lead your tasks.", border_style="kborder"))
+    select_primary_model()
+
+    # 5. Finalise
+    kitty.memory.set_fact("setup_complete", "true", category="identity")
+    kitty.memory.save()
+    console.print("\n[bold green]SETUP COMPLETE![/bold green]")
+    console.print("[kmuted]Kitty is ready to code. Welcome home.[/kmuted]")
+    time.sleep(1.5)
+
+
+@app.command("setup", help="Re-run the setup wizard to update keys, theme, or models.")
+@observe_command("setup")
+def setup_cmd() -> None:
+    onboarding()
+    console.print("\n[bold green]SETUP COMPLETE![/bold green]")
+    console.print("[kwhite]You are now fully equipped. Run [kruby]kitty[/kruby] to begin your journey.[/kwhite] ฅ^•ﻌ•^ฅ\n")
+    raise typer.Exit(code=EXIT_OK)
+
+
+def get_user_input() -> str:
+    """Reads input from the user, supporting multi-line blocks via triple quotes."""
+    first_line = console.input(f"\n[kruby]>[/kruby] [kmuted]talk to kitty({state.current_mode.lower()})...[/kmuted] ").strip()
+    
+    if first_line.startswith('"""'):
+        lines = [first_line[3:]]
+        if first_line.endswith('"""') and len(first_line) > 3:
+            return first_line[3:-3].strip()
+            
+        console.print("[kmuted]Multi-line mode active. End with triple quotes (\"\"\") to send.[/kmuted]")
+        while True:
+            line = console.input("[kmuted]... [/kmuted]")
+            if line.endswith('"""'):
+                lines.append(line[:-3])
+                break
+            lines.append(line)
+        return "\n".join(lines).strip()
+    
+    return first_line
 
 
 def run_app() -> None:
     ensure_kitty()
-    if not kitty.memory.get("user_name"):
-        onboarding()
-    else:
-        state.user_name = kitty.memory.get("user_name")
-
-    is_first_run = not kitty.memory.get('setup_complete')
-    if is_first_run:
+    
+    # Check if first run
+    if not kitty.memory.get("user_name") or not kitty.memory.get("setup_complete"):
         clear()
-        select_theme()
-        clear()
-        select_primary_model()
-        kitty.memory.set_fact('setup_complete', 'true', category='identity')
-        kitty.memory.save()
-
+        console.print(get_header("Welcome"))
+        console.print("\n[kruby]Nya~ Welcome to KittyCode v2.0![/kruby]")
+        console.print("[ktext]It looks like this is your first time here or your configuration is incomplete.[/ktext]")
+        console.print("\n[kwhite]Please run the setup wizard to get started:[/kwhite]")
+        console.print("  [kruby]kitty setup[/kruby]\n")
+        raise typer.Exit(code=EXIT_OK)
+    
+    state.user_name = kitty.memory.get("user_name") or "User"
     refresh_thought()
     show_screen()
 
+
     while state.running:
         try:
-            user_input = console.input(f"\n[kruby]>[/kruby] [kmuted]talk to kitty({state.current_mode.lower()})...[/kmuted] ").strip()
-        except EOFError:
+            user_input = get_user_input()
+        except (EOFError, KeyboardInterrupt):
             break
 
         if not user_input:
@@ -344,7 +418,11 @@ def run_app() -> None:
         kitty.flush_all()
 
 
+
+
+
 def show_stats(wait_for_key: bool = False) -> None:
+
     from kittycode.models.health import ModelHealthTracker
     from kittycode.utils.stats import StatsManager
 

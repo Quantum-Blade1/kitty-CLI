@@ -74,33 +74,77 @@ def setup_theme(theme_name: str):
         console.push_theme(Theme(THEMES[theme_name]))
 
 def get_header(current_mode):
-    grid = Table.grid(expand=False, padding=(0, 4))
+    logo_art = r"""
+    /\_/\  
+   ( o.o ) 
+    > ^ <
+    """
+
+
+    grid = Table.grid(expand=False, padding=(0, 2))
     grid.add_column(justify="left")
     grid.add_column(justify="left")
-    logo = Text("^^ KittyCode", style="kruby")
-    modes = ["Chat", "Code", "About"]
-    pills = [f"[kred] {m}[/kred]" if m == current_mode else f"[kmuted]{m}[/kmuted]" for m in modes]
-    grid.add_row(logo, Text.from_markup("   ".join(pills)))
+    
+    logo = Text(logo_art, style="kruby")
+    
+    modes = ["Chat", "Code", "About", "Stats"]
+    pills = []
+    for m in modes:
+        if m == current_mode:
+            pills.append(f"[kwhite on kruby] {m} [/kwhite on kruby]")
+        else:
+            pills.append(f"[kmuted]{m}[/kmuted]")
+    
+    header_info = Group(
+        Text("^^ KITTYCODE v2.0", style="kruby bold"),
+        Text.from_markup("   ".join(pills))
+    )
+    
+    grid.add_row(logo, header_info)
     return Panel(grid, border_style="kborder", padding=(0, 1), expand=False)
+
 
 def get_footer(mem_count, current_mode, user_name, project_root):
     grid = Table.grid(expand=False, padding=(0, 4))
     grid.add_column(justify="left")
     grid.add_column(justify="left")
-    status = Text.from_markup(f"[kmuted]Link: {mem_count} | Mode: {current_mode} | User: {user_name} | Scope: {project_root}[/kmuted]")
-    hints = Text.from_markup("[kmuted]Type 'shift' or mode name to switch[/kmuted]")
+    
+    status = Text.from_markup(f"[kruby]Link: {mem_count}[/kruby] | [kwhite]{current_mode}[/kwhite] | [ktext]{user_name}[/ktext] | [kmuted]{project_root}[/kmuted]")
+    hints = Text.from_markup("[kmuted]Hints: 'shift' (mode) | 'stats' | 'setup'[/kmuted]")
+    
     grid.add_row(status, hints)
     return grid
+
 
 def render_bubble(role, content, user_name="User", logs=None):
     if role == "kitty":
         renderables = [Markdown(content)]
         if logs:
-            log_text = Text("\n^^ Work Log:", style="kruby")
-            for r in logs: log_text.append(f"\n  {r}", style="ktext")
+            log_text = Text("\n── Work Log", style="kmuted")
+            for r in logs: 
+                log_text.append(f"\n  • ", style="kruby")
+                log_text.append(f"{r}", style="kmuted italic")
             renderables.append(log_text)
-        return Panel(Group(*renderables), title="[kruby][/kruby]", title_align="left", style="kbg", border_style="kborder", width=MAX_WIDTH, padding=(0, 1), expand=False)
+        
+        return Panel(
+            Group(*renderables), 
+            title="[kruby] K [/kruby]", 
+            title_align="left", 
+            style="kbg", 
+            border_style="kborder", 
+            width=MAX_WIDTH, 
+            padding=(0, 1), 
+            expand=False
+        )
     else:
         display_content = content.ljust(15) if len(content) < 15 else content
-        return Panel(Text(display_content, style="ktext"), border_style="kruby", padding=(0, 1), subtitle=Text(user_name, style="kruby"), subtitle_align="right", expand=False)
+        return Panel(
+            Text(display_content, style="ktext"), 
+            border_style="kruby", 
+            padding=(0, 1), 
+            subtitle=f"[kruby] {user_name} [/kruby]", 
+            subtitle_align="right", 
+            expand=False
+        )
+
 

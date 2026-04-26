@@ -23,12 +23,14 @@ class ModelRouter:
         # Provider dispatch registry — single source of truth
         self._providers = {
             "bytez":     BytezProvider(BYTEZ_KEY),
-            "google":    GeminiProvider(GEMINI_KEY),
+            "google":    OpenRouterProvider(OPENROUTER_KEY),
             "openai":    OpenRouterProvider(OPENROUTER_KEY),
             "anthropic": OpenRouterProvider(OPENROUTER_KEY),
             "deepseek":  OpenRouterProvider(OPENROUTER_KEY),
             "meta":      OpenRouterProvider(OPENROUTER_KEY),
+            "openrouter": OpenRouterProvider(OPENROUTER_KEY),
         }
+
 
         self._current_prefs = load_preferences()
 
@@ -153,7 +155,12 @@ class ModelRouter:
 
             t0 = time.time()
             try:
-                result = active_provider.run(reg_info["id"], prompt, params={"temperature": config.temperature})
+                params = {
+                    "temperature": config.temperature,
+                    "max_tokens": reg_info.get("max_tokens", 4096)
+                }
+                result = active_provider.run(reg_info["id"], prompt, params=params)
+
                 latency = time.time() - t0
 
                 if hasattr(result, "error") and result.error:

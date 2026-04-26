@@ -1,27 +1,22 @@
+# KittyCode Ignore
 __pycache__/
-*.pyc
-*.pyo
-dist/
-build/
-*.egg-info/
-
-# Secrets — NEVER commit API keys
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
 .env
 
-# KittyCode runtime state
+# Build and Dist
+build/
+dist/
+*.egg-info/
+
+# Kitty Private Data
 .kitty/
-.kittycode/
-
-# Memory exports (runtime artifacts)
-memory_export*.json
-
-# Logs
+memory_export_*.json
 *.log
 
-# IDE
+# IDEs
 .vscode/
 .idea/
-
-# OS
-Thumbs.db
-.DS_Store

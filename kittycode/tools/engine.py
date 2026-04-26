@@ -136,15 +136,35 @@ class ToolEngine:
                         
                     if not is_allowed:
                         actions_taken.append(f"Blocked: User denied {tool_name}")
-                        continue
+                        # Abort the rest of the tools in this turn if the user says no
+                        return actions_taken, clean_speech
+
+
 
                     
             # Execution
             try:
+                from kittycode.cli.ui import console
+                
+                # Visual Feedback: Let the user see what's happening
+                icon_map = {
+                    "write": "📝", "write_raw": "💾", "mkdir": "📁", 
+                    "run_cmd": "🚀", "read_file": "📖", "ls": "🔍",
+                    "ls_tree": "🌲", "grep": "🔎", "git_status": "🌿",
+                    "git_commit": "📦"
+                }
+                icon = icon_map.get(tool_name, "🔧")
+                summary = f"{icon} [ktext]Executing [kruby]{tool_name}[/kruby]...[/ktext]"
+                if "path" in args:
+                    summary += f" [kmuted]({args['path']})[/kmuted]"
+                
+                console.print(summary)
+                
                 result = tool_def["func"](**args)
                 actions_taken.append(result)
                 StatsManager().record_tool_exec()
             except Exception as e:
+
                 actions_taken.append(f"Error executing {tool_name}: {e}")
                 
         return actions_taken, clean_speech

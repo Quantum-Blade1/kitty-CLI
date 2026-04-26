@@ -37,14 +37,16 @@ IDENTITY:
 TOOL PROTOCOL:
 - You operate via a tool-calling while-loop.
 - To execute actions, you MUST output a JSON array of tool calls.
+- If you intend to take an action, the JSON MUST be present in that turn.
 - Format: [{"tool": "tool_name", "args": {"arg1": "val1"}}]
 - Rules:
   1. Only use tools from the schema below. Never invent tool names.
   2. PRE-FLIGHT: Call `git_status` before any file changes.
-  3. PRE-FLIGHT: Call `read_file` before writing to a file to understand its current state.
+  3. PRE-FLIGHT: Call `read_file` before writing to a file.
   4. POST-FLIGHT: Call `run_tests` after any batch of code changes.
-  5. COMMIT: Use `git_commit` once you have verified your changes with tests.
-  6. COMPLETION: When the task is finished and verified, output "TASK COMPLETE: <one sentence summary>".
+  5. COMMIT: Use `git_commit` once verified with tests.
+  6. COMPLETION: When the task is finished, output "TASK COMPLETE: <one sentence summary>".
+
 
 MODES:
 - CODE MODE: Full access to all tools. You are expected to solve complex tasks autonomously over multiple turns.
@@ -273,57 +275,74 @@ After writing fixes, do NOT run the tests yourself. Return "FIXES_APPLIED".
 
     def run_task(self, user_input: str, status=None) -> dict:
         """
-        Run the full agentic loop for a task.
+        Run the full agentic loop for a task using the Planner for transparency.
         Returns {"stop_reason": StopReason, "iterations": int, "output": str}
         """
-        from kittycode.models.llm import extract_content
-        
+        from rich.table import Table
+        from rich.panel import Panel
+        from kittycode.cli.ui import console
+
         self.current_mode = "Code"
-        history = list(self.history_mgr.trim(self._build_initial_history(user_input)))
+        
+        # 1. GENERATE PLAN
+        if status:
+            status.update("[bold magenta]Planning Approach...[/bold magenta]")
+        
+        queue = self.generate_plan(user_input)
+        
+        if self.planner.current_scope == "Ask":
+            # If it's just a question, bypass the project loop
+            resp, actions = self.get_response(user_input)
+            return {"stop_reason": StopReason.TASK_COMPLETE, "iterations": 1, "output": resp}
+
+        # 2. DISPLAY PLAN TO USER
+        plan_table = Table(title="[bold magenta]Kitty's Project Plan[/bold magenta]", border_style="kborder", expand=True)
+        plan_table.add_column("#", style="kmuted", width=3)
+        plan_table.add_column("Phase / Step", style="kwhite")
+        plan_table.add_column("Type", style="kruby", justify="center")
+        
+        for i, step in enumerate(queue, 1):
+            etype = "Act" if step.get("executable") else "Think"
+            plan_table.add_row(str(i), step["step"], etype)
+            
+        console.print("\n")
+        console.print(Panel(f"[ktext]{self.planner.current_reasoning}[/ktext]", title="[kruby]Architectural Reasoning[/kruby]", border_style="kborder"))
+        console.print(plan_table)
+        console.print("\n[kmuted]Initiating autonomous execution sequence...[/kmuted]\n")
+
+        # 3. EXECUTION LOOP
         iteration = 0
         last_output = ""
+        total_steps = len(queue)
 
-        while iteration < MAX_AGENT_ITERATIONS:
+        while self.planner.has_next_task() and iteration < MAX_AGENT_ITERATIONS:
             iteration += 1
-            try:
-                # 1. Generate response
-                result, model_key = self.llm.router.generate(history, task_type=self.current_mode)
-                raw_text = extract_content(result.output)
-                
-                # 2. Execute tools
-                tool_logs, clean_speech = self.engine.execute_tools(raw_text, status=status)
-                history.append({"role": "assistant", "content": clean_speech})
-                last_output = clean_speech
+            
+            # Get the next task from the planner
+            # execute_next_step handles turn-by-turn history and system prompt updates
+            resp, actions, current_step = self.execute_next_step(status=status)
+            last_output = resp
 
-                # Stop condition: model declared completion
-                if any(signal in clean_speech.lower() for signal in
-                       ["task complete", "done.", "finished.", "all tests pass"]):
-                    self.history = self.history_mgr.trim(history)
-                    return {"stop_reason": StopReason.TASK_COMPLETE,
-                            "iterations": iteration, "output": last_output}
+            # If the step was executable but no tools were called, we might need to nudge
+            if not actions and iteration < MAX_AGENT_ITERATIONS:
+                 # Check if the last model response was just talking
+                 # We skip nudging if it's already in a reasoning/debate turn
+                 pass
 
-                # Stop condition: no tools were called this turn (implicit completion)
-                if not tool_logs:
-                    self.history = self.history_mgr.trim(history)
-                    return {"stop_reason": StopReason.NO_TOOLS_CALLED,
-                            "iterations": iteration, "output": last_output}
+            # Update status for the user
+            if status:
+                status.update(f"[bold green]Phase {iteration}/{total_steps} Complete.[/bold green]")
 
+        # 4. FINAL REFLECTION
+        if status:
+            status.update("[bold cyan]Reflecting on Goal...[/bold cyan]")
+        reflection = self.planner.generate_reflection()
+        if reflection:
+            last_output += f"\n\n---\n[bold kruby]Post-Task Reflection:[/bold kruby]\n{reflection}"
 
-                # 3. Feed tool results back
-                tool_feedback = "\n".join(tool_logs)
-                history.append({"role": "user", "content": f"[TOOL RESULTS]\n{tool_feedback}"})
-                history = self.history_mgr.trim(history)
-
-            except KeyboardInterrupt:
-                return {"stop_reason": StopReason.USER_INTERRUPT,
-                        "iterations": iteration, "output": last_output}
-            except Exception as e:
-                return {"stop_reason": StopReason.ERROR,
-                        "iterations": iteration, "output": str(e)}
-
-        self.history = self.history_mgr.trim(history)
-        return {"stop_reason": StopReason.MAX_ITERATIONS,
+        return {"stop_reason": StopReason.TASK_COMPLETE,
                 "iterations": iteration, "output": last_output}
+
 
     def get_response(self, user_input: str):
         """Legacy direct response (no planning loop)"""

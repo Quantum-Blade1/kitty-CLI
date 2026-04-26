@@ -342,7 +342,16 @@ class MemoryManager:
     def get(self, key, default=None):
         if key == "user_name":
             return self.legacy_data.get("user_name", default)
+        
+        # Fallback to searching through facts (key: value format) - Latest first
+        for m in reversed(self.metadata):
+            text = self._decrypt_entry(m)
+            if text.startswith(f"{key}: "):
+                return text.split(f"{key}: ", 1)[1]
+
+        
         return default
+
 
     def set(self, key, value):
         if key == "user_name":

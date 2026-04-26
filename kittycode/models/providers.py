@@ -92,8 +92,12 @@ class GeminiProvider(BaseProvider):
             response = self.client.models.generate_content(
                 model=real_model_id,
                 contents=contents,
-                config=types.GenerateContentConfig(temperature=temperature)
+                config=types.GenerateContentConfig(
+                    temperature=params.get("temperature", 0.7) if params else 0.7,
+                    max_output_tokens=params.get("max_tokens") if params else None
+                )
             )
+
         except Exception as e:
             raise RuntimeError(f"Gemini API call failed: {e}")
 
@@ -137,11 +141,16 @@ class OpenRouterProvider(BaseProvider):
         }
 
         temperature = params.get("temperature", 0.7) if params else 0.7
+        max_tokens = params.get("max_tokens") if params else None
+        
         data = {
             "model": model_id,
             "messages": contents,
             "temperature": temperature
         }
+        if max_tokens:
+            data["max_tokens"] = max_tokens
+
 
         req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers)
 
