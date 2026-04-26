@@ -75,14 +75,14 @@ def run_environment_checks() -> List[CheckResult]:
             ok=find_spec("yaml") is not None,
             severity="critical",
             detail="Python package import check",
-            fix="Install dependencies: pip install -r requirements.txt",
+            fix="Install dependencies: pip install -e .",
         ),
         CheckResult(
             name="numpy installed",
             ok=find_spec("numpy") is not None,
             severity="critical",
             detail="Python package import check",
-            fix="Install dependencies: pip install -r requirements.txt",
+            fix="Install dependencies: pip install -e .",
         ),
         CheckResult(
             name="OPENROUTER_API_KEY or BYTEZ_API_KEY configured",
