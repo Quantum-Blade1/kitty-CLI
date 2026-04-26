@@ -152,8 +152,8 @@ graph TD
 - **`kittycode/quantum`**: Mathematical optimization heuristics for routing, task annealing, and memory amplitude amplification.
 - **`kittycode/agent`**: Contains the `KittyAgent`, `Planner`, and the `DebateManager` (Critic-Builder loop).
 - **`kittycode/models`**: LLM integrations, provider classes, and the deterministic health tracker.
-- **`kittycode/memory`**: Persistent, structured graph/vector memory system.
-- **`kittycode/tools`**: File system tools and the strict `ToolEngine`.
+- **`kittycode/memory`**: Persistent, structured knowledge graph + vector memory system with temporal decay.
+- **`kittycode/tools`**: File system tools (`fs_tools`), codebase introspection tools (`read_tools` — `read_file`, `grep`, `find_symbol`), visualization tools (`viz_tools`), and the strict `ToolEngine`.
 - **`kittycode/security`**: The `SandboxValidator` isolating directory access and the `SafetyCritic` scanning for shell injection.
 - **`kittycode/cli`**: Typer-based CLI endpoints, telemetry logic, and Rich console formatting.
 
@@ -276,7 +276,78 @@ You can inspect Kitty's internal state using the terminal visualizer.
 
 ---
 
+## Codebase Introspection Tools
+
+Production coding CLIs can **read** the codebase, not just write to it. KittyCode now ships three sandbox-safe introspection tools available in *all* modes (Code, Chat, and Reasoning).
+
+### `read_file` — Read with Line Numbers
+Read any file in the sandbox. Optionally slice by line range. Output is always prefixed with 1-indexed line numbers for precise referencing.
+
+```text
+╭───────────────────────────────────────────────────╮
+│ read the router module, lines 40-60               │
+╰────────────────────────────────────────── user ───╯
+
+^^ Work Log:
+  read_file: kittycode/models/router.py (lines 40-60)
+
+File: kittycode/models/router.py (187 lines)  [showing lines 40-60]
+ 40 |     def route(self, task_type: str) -> str:
+ 41 |         """Select the best model for a given task type."""
+ 42 |         chain = build_routing_chain(...)
+ ...
+```
+- **Max file size**: 500 KB (returns error for larger files)
+- **Max return**: 8,000 characters (truncates with `[...N lines truncated]`)
+- **Binary detection**: Automatically skips `.png`, `.exe`, `.pdf`, etc.
+
+### `grep` — Regex Search Across Files
+Search for a regex pattern across the entire project. Skips binary files, `node_modules`, `.git`, and `__pycache__` automatically.
+
+```text
+╭───────────────────────────────────────────────────╮
+│ find all uses of QuantumRNG in the codebase       │
+╰────────────────────────────────────────── user ───╯
+
+^^ Work Log:
+  grep: pattern="QuantumRNG"
+
+kittycode/security/rng.py:12: class QuantumRNG:
+kittycode/security/audit_chain.py:8: from kittycode.security.rng import QuantumRNG
+kittycode/core/critic.py:15: from kittycode.security.rng import QuantumRNG
+tests/test_security_advanced.py:22: rng = QuantumRNG(n_qubits=8)
+```
+- **Max matches**: 50 (overflow noted as `[N more matches not shown]`)
+- **Max file size for scanning**: 200 KB per file
+
+### `find_symbol` — Locate Definitions
+Find where a function, class, or variable is *defined* — not just referenced. Searches for `def`, `class`, `const`, `let`, `var`, and assignment patterns.
+
+```text
+╭───────────────────────────────────────────────────╮
+│ where is SafetyCritic defined?                    │
+╰────────────────────────────────────────── user ───╯
+
+^^ Work Log:
+  find_symbol: "SafetyCritic"
+
+kittycode/core/critic.py:28: class SafetyCritic:
+```
+
+### Capability Comparison
+
+| Tool Capability | Claude Code | Codex | Gemini CLI | KittyCode |
+| :--- | :---: | :---: | :---: | :---: |
+| **read_file** (with line numbers) | ✅ | ✅ | ✅ | ✅ |
+| **grep / search** (regex across files) | ✅ | ✅ | ✅ | ✅ |
+| **find_symbol** (definition lookup) | ✅ | ⚠️ | ⚠️ | ✅ |
+| **Binary file detection** | ✅ | ✅ | ✅ | ✅ |
+| **Sandbox-safe** (path validation) | ✅ | ✅ | ⚠️ | ✅ |
+
+---
+
 ## Security Use Cases
+
 
 ### Case 1: Detect Shell Injection Tampering
 If an attacker attempts to manually edit the `.kitty/audit_chain.jsonl` to hide a blocked malicious command, the `kitty audit` command will immediately flag the index where the chain was broken.
