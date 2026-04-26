@@ -698,6 +698,45 @@ def memory_export(
         console.print(f"[green]Memory export complete[/green] path={result['path']} count={result['count']}")
 
 
+@memory_app.command("graph")
+@observe_command("memory.graph")
+def memory_graph(
+    max_nodes: int = typer.Option(30, "--max", help="Max nodes to display."),
+    node_id:   str = typer.Option("", "--node", help="Show detail for a specific node id."),
+):
+    """Visualise the memory knowledge graph in the terminal."""
+    from kittycode.memory.visualiser import render_graph_table, render_node_detail
+    mm = get_memory_manager()
+    if node_id:
+        render_node_detail(mm.graph, node_id, console)
+    else:
+        render_graph_table(mm.graph, console, max_nodes=max_nodes)
+
+
+@memory_app.command("link")
+@observe_command("memory.link")
+def memory_link(
+    id_a: str = typer.Argument(..., help="First node id."),
+    id_b: str = typer.Argument(..., help="Second node id."),
+    edge: str = typer.Option("relates_to", "--type", help="Edge type."),
+):
+    """Manually link two memory nodes with a typed edge."""
+    from kittycode.memory.graph import EdgeType
+    mm = get_memory_manager()
+    try:
+        et = EdgeType(edge)
+    except ValueError:
+        console.print(f"[red]Unknown edge type '{edge}'.[/red]")
+        console.print(f"Valid: {[e.value for e in EdgeType]}")
+        raise typer.Exit(1)
+    ok = mm.graph.add_edge(id_a, id_b, et)
+    mm.save()
+    if ok:
+        console.print(f"[green]Linked {id_a} --[{edge}]--> {id_b}[/green]")
+    else:
+        console.print("[red]Link failed — check both node ids exist.[/red]")
+
+
 @app.command(help="Show observability metrics.")
 @observe_command("stats")
 def stats() -> None:

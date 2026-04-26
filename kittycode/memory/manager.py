@@ -9,6 +9,8 @@ from typing import Dict, List, Optional
 
 from kittycode.config.settings import KITTY_GLOBAL_DIR, KITTY_PROJECT_DIR
 from kittycode.security.vault import MemoryVault
+from kittycode.memory.graph import KnowledgeGraph, NodeType
+from kittycode.memory.decay import DecayEngine
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,7 @@ class MemoryManager:
         self.legacy_file = KITTY_GLOBAL_DIR / "memory.json"
 
         self.metadata: List[Dict] = []
-        self.graph: Dict[str, List[str]] = {}
+        self._legacy_links: Dict[str, List[str]] = {}
         self._id_index: Dict[str, int] = {}
 
         self._model = None
@@ -51,8 +53,12 @@ class MemoryManager:
         self._dim = 384
         self._backend = "unknown"
         self.vault = MemoryVault()
+        self._graph = KnowledgeGraph()
+        self._decay = DecayEngine()
+        self._graph_file = KITTY_PROJECT_DIR / "knowledge_graph.json"
 
         self._load_metadata()
+        self._load_graph()
         self._migrate_legacy_if_needed()
 
     # --- Backend and ML loading ---
@@ -120,7 +126,7 @@ class MemoryManager:
                     data = json.load(f)
                 raw_memories = data.get("memories", [])
                 self.legacy_data["user_name"] = data.get("user_name", None)
-                self.graph = data.get("graph", {})
+                self._legacy_links = data.get("graph", {})
 
                 self.metadata = []
                 for m in raw_memories:
@@ -212,10 +218,30 @@ class MemoryManager:
         data_to_save = {
             "user_name": self.legacy_data.get("user_name"),
             "memories": self.metadata,
-            "graph": self.graph,
+            "graph": self._legacy_links,
         }
         with open(self.meta_file, "w", encoding="utf-8") as f:
             json.dump(data_to_save, f, indent=2)
+
+    def _load_graph(self):
+        if self._graph_file.exists():
+            try:
+                import json
+                data = json.loads(self._graph_file.read_text(encoding="utf-8"))
+                self._graph = KnowledgeGraph.from_dict(data)
+                self._decay.apply_decay(self._graph)
+            except Exception as e:
+                logger.warning("Graph load failed, starting fresh: %s", e)
+
+    def _save_graph(self):
+        try:
+            import json
+            self._graph_file.write_text(
+                json.dumps(self._graph.to_dict(), indent=2, default=str),
+                encoding="utf-8"
+            )
+        except Exception as e:
+            logger.warning("Graph save failed: %s", e)
 
     # --- Pruning ---
 
@@ -242,9 +268,9 @@ class MemoryManager:
         kept = protected + prunable[: max(0, budget)]
 
         kept_ids = {m["id"] for m in kept if "id" in m}
-        self.graph = {
+        self._legacy_links = {
             k: [v for v in links if v in kept_ids]
-            for k, links in self.graph.items()
+            for k, links in self._legacy_links.items()
             if k in kept_ids
         }
 
@@ -258,12 +284,17 @@ class MemoryManager:
     def link_memories(self, id_a: str, id_b: str):
         if id_a not in self._id_index or id_b not in self._id_index:
             return
-        self.graph.setdefault(id_a, [])
-        self.graph.setdefault(id_b, [])
-        if id_b not in self.graph[id_a]:
-            self.graph[id_a].append(id_b)
-        if id_a not in self.graph[id_b]:
-            self.graph[id_b].append(id_a)
+        self._legacy_links.setdefault(id_a, [])
+        self._legacy_links.setdefault(id_b, [])
+        if id_b not in self._legacy_links[id_a]:
+            self._legacy_links[id_a].append(id_b)
+        if id_a not in self._legacy_links[id_b]:
+            self._legacy_links[id_b].append(id_a)
+        
+        # Also mirror to the new knowledge graph
+        from kittycode.memory.graph import EdgeType
+        self._graph.add_edge(id_a, id_b, EdgeType.RELATES_TO)
+        
         self._save_state()
 
     def _get_graph_neighbor_texts(self, memory_ids: List[str], depth: int = 1) -> List[str]:
@@ -273,7 +304,7 @@ class MemoryManager:
         for _ in range(depth):
             next_frontier = []
             for mid in frontier:
-                for neighbor in self.graph.get(mid, []):
+                for neighbor in self._legacy_links.get(mid, []):
                     if neighbor not in visited:
                         visited.add(neighbor)
                         next_frontier.append(neighbor)
@@ -355,6 +386,20 @@ class MemoryManager:
             entry["links"].append(link_to)
 
         self._prune()
+        
+        # Infer node type from category
+        type_map = {
+            "bugs":            NodeType.BUG,
+            "features":        NodeType.FEATURE,
+            "identity":        NodeType.PERSON,
+            "project_context": NodeType.CONCEPT,
+            "reflections":     NodeType.CONCEPT,
+            "general":         NodeType.FACT,
+        }
+        ntype = type_map.get(cat, NodeType.FACT)
+        self._graph.add_node(label=f"{key}: {value}", node_type=ntype, weight=1.0, node_id=mem_id)
+        self.save()
+        
         return mem_id
 
     def list_memories(self, limit: int = 10, category: str = "") -> list:
@@ -371,17 +416,24 @@ class MemoryManager:
         if not texts:
             return []
 
-        by_text: Dict[str, Dict] = {}
+        lookup: Dict[str, Dict] = {}
         for m in self.metadata:
-            t = str(m.get("text", ""))
-            by_text[t] = m
+            lookup[str(m.get("text"))] = m
+            lookup[self._decrypt_entry(m)] = m
 
         results = []
         for t in texts:
-            entry = by_text.get(t)
+            entry = lookup.get(t)
             if entry:
                 results.append(entry)
-        return results[:limit]
+
+        seen_ids = set()
+        final_results = []
+        for r in results:
+            if r["id"] not in seen_ids:
+                seen_ids.add(r["id"])
+                final_results.append(r)
+        return final_results[:limit]
 
     def prune_memories(self, max_memories: Optional[int] = None, dedupe: bool = True) -> Dict[str, int]:
         original = len(self.metadata)
@@ -417,7 +469,7 @@ class MemoryManager:
             "backend": self.backend,
             "count": len(self.metadata),
             "memories": self.metadata,
-            "graph": self.graph,
+            "graph": self._legacy_links,
         }
         with open(export_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
@@ -473,13 +525,23 @@ class MemoryManager:
 
         neighbor_texts = self._get_graph_neighbor_texts([mid for mid in semantic_ids if mid], depth=1) if semantic_ids else []
 
+        seed_ids = [mid for mid in semantic_ids if mid and mid in self._graph.nodes]
+        if seed_ids:
+            activated = self._graph.spreading_activation(seed_ids, depth=2, top_k=k)
+            # Reinforce retrieved nodes
+            for node in activated:
+                self._decay.reinforce(node)
+            activated_texts = [node.label for node in activated]
+        else:
+            activated_texts = []
+
         seen = set()
         results = []
-        for t in semantic_texts + neighbor_texts:
+        for t in semantic_texts + activated_texts + neighbor_texts:
             if t and t not in seen:
                 seen.add(t)
                 results.append(t)
-        return results
+        return results[:k * 2]   # return up to 2k since graph adds context
 
     def get_facts(self):
         return {
@@ -489,6 +551,11 @@ class MemoryManager:
 
     def save(self):
         self._save_state()
+        self._save_graph()
+
+    @property
+    def graph(self) -> KnowledgeGraph:
+        return self._graph
 
     @property
     def backend(self) -> str:
