@@ -4,6 +4,7 @@ from kittycode.models.llm import LLMClient
 from kittycode.tools.registry import ToolRegistry
 from kittycode.tools.engine import ToolEngine
 from kittycode.tools.fs_tools import setup_fs_tools
+from kittycode.tools.read_tools import setup_read_tools
 from kittycode.agent.planner import Planner
 from kittycode.agent.debate import DebateManager
 from kittycode.config.settings import RuntimeConfig
@@ -56,6 +57,7 @@ class KittyAgent:
         self.registry = ToolRegistry()
         setup_fs_tools(self.registry)
         setup_viz_tools(self.registry)
+        setup_read_tools(self.registry)
         
         # We also need a memory tool so Kitty can save facts dynamically
         def action_mem(key: str, value: str) -> str:
@@ -107,14 +109,14 @@ class KittyAgent:
         # This forms a concrete cognitive barrier preventing structural file execution.
         if mode == "Chat":
             all_schemas = self.registry.get_all_schemas()
-            safe_schemas = [schema for schema in all_schemas if schema.get("name") in ["mem", "draw_tree", "draw_table", "draw_chart"]]
+            safe_schemas = [schema for schema in all_schemas if schema.get("name") in ["mem", "draw_tree", "draw_table", "draw_chart", "read_file", "grep", "find_symbol"]]
             schemas_json = json.dumps(safe_schemas, indent=2)
-            base_prompt += "\n[MODE: CHAT] You are currently in Chat mode. Do NOT attempt to use structural tools (write/mkdir/run_cmd) as they are disabled. If a user asks you to modify code, tell them to switch to Code mode."
+            base_prompt += "\n[MODE: CHAT] You are currently in Chat mode. You CAN read files and search code using read_file, grep, and find_symbol. Do NOT attempt to use structural tools (write/mkdir/run_cmd) as they are disabled. If a user asks you to modify code, tell them to switch to Code mode."
         elif mode == "Reasoning":
             all_schemas = self.registry.get_all_schemas()
-            safe_schemas = [schema for schema in all_schemas if schema.get("name") in ["mem", "draw_tree", "draw_table", "draw_chart"]]
+            safe_schemas = [schema for schema in all_schemas if schema.get("name") in ["mem", "draw_tree", "draw_table", "draw_chart", "read_file", "grep", "find_symbol"]]
             schemas_json = json.dumps(safe_schemas, indent=2)
-            base_prompt += "\n[MODE: REASONING] You are currently processing a purely architectural or intellectual step. Do NOT attempt to use structural tools (write/mkdir/run_cmd) as they are disabled for this specific step. Just analyze and print your technical answer."
+            base_prompt += "\n[MODE: REASONING] You are currently processing a purely architectural or intellectual step. You CAN read files and search code. Do NOT attempt to use structural tools (write/mkdir/run_cmd) as they are disabled for this specific step. Just analyze and print your technical answer."
         else:
             schemas_json = json.dumps(self.registry.get_all_schemas(), indent=2)
             
