@@ -2,7 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-04-27
+
+### Added
+- **Plan-First Autonomous Architecture**: Integrated a formal `Planner` module that generates architectural reasoning and step-by-step queues before executing tasks.
+- **Live Work Logs**: Real-time terminal feedback for all tool executions (mkdir, write, read, etc.) with intuitive iconography.
+- **PyPI Distribution Ready**: Officially registered as `kittycode-agent` on the Python Package Index.
+- **Cross-Platform One-Click Installers**: Added `install.sh` (Mac/Linux) and `install.bat` (Windows) for seamless onboarding.
+- **Advanced Model Routing**: Optimized logic for Qwen 2.5 Coder and DeepSeek-R1; added budget-friendly fallback mechanisms to prevent API credit errors.
+- **Privacy Hardening**: Strict exclusion of `.env` and `memory_export` files in the distribution build.
+
+### Changed
+- Project renamed to `kittycode-agent` for unique global branding.
+- Enhanced the "Autonomous Mode" loop with step-level verification.
+
+### Fixed
+- Resolved `UnicodeDecodeError` in setup scripts on Windows systems.
+- Fixed stale context bugs where the agent would hallucinate file existence after folder creation.
+- Stabilized memory search tests with improved UUID collision handling.
+
 ## [1.0.0] - 2026-04-26
+
 
 ### Added
 - **Quantum-Inspired Architecture**: Implemented pure-Python probabilistic heuristics.
