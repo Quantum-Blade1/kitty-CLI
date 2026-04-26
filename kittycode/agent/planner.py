@@ -18,13 +18,24 @@ Analyze the user's request and determine its Scope before planning steps.
   - MULTI-FILE COORDINATION: If the task spans multiple files, order steps by dependency (e.g., write the definition before the import, write the source before the test).
   - TEST-DRIVEN: Always include a step to run tests if the task involves changing logic.
 
+    Each step in the plan MUST include:
+    - "step": description of what to do
+    - "executable": true if this step writes files or runs commands, false if analysis
+    - "writes": list of file paths this step will create or modify (empty list if none)
+    - "reads": list of file paths this step needs to read first (empty list if none)
+
+    Example queue:
+    [
+      {"step": "Write User model", "executable": true, "writes": ["src/user.py"], "reads": []},
+      {"step": "Write tests", "executable": true, "writes": ["tests/test_user.py"], "reads": ["src/user.py"]}
+    ]
+
 Output exactly a JSON object. Do not output anything else.
 {
   "scope": "Ask", // or "Project"
-  "reasoning": "brief explanation of why this scope was chosen, including file dependency logic",
+  "reasoning": "brief explanation including dependency logic",
   "queue": [
-    {"step": "Step 1 description", "executable": false},
-    {"step": "Step 2 description", "executable": true}
+    {"step": "...", "executable": true, "writes": ["..."], "reads": ["..."]}
   ]
 }
 If no steps are needed, output {"scope": "Ask", "reasoning": "None required", "queue": []}
@@ -130,10 +141,12 @@ class Planner:
                                 is_exec = False if self.current_scope == "Ask" else bool(t.get("executable", False))
                                 clean_tasks.append({
                                     "step": str(t["step"]),
-                                    "executable": is_exec
+                                    "executable": is_exec,
+                                    "writes": t.get("writes", []),
+                                    "reads": t.get("reads", [])
                                 })
                             elif isinstance(t, str):
-                                clean_tasks.append({"step": t, "executable": False})
+                                clean_tasks.append({"step": t, "executable": False, "writes": [], "reads": []})
                     
                     self.queue = clean_tasks
                 except Exception as e:
@@ -149,6 +162,10 @@ class Planner:
         if len(self.queue) > 2:
             from kittycode.quantum.planner_q import quantum_anneal_steps
             self.queue = quantum_anneal_steps(self.queue)
+            
+            # Inter-file dependency sorting (Topological Sort)
+            deps = _extract_file_deps(self.queue)
+            self.queue = _topo_sort(self.queue, deps)
             
         return self.queue
 
@@ -210,3 +227,86 @@ class Planner:
         for s in recent:
             ctx += f"- When tackling: '{s['goal']}', you learned: {s['strategy_note']}\n"
         return ctx
+
+def _extract_file_deps(steps: List[Dict]) -> Dict[int, set]:
+    """
+    Build a dependency graph from a list of plan steps.
+    Returns: {step_index: {dep_step_index, ...}}
+    """
+    deps = {i: set() for i in range(len(steps))}
+    file_to_producer_idx = {}
+    
+    # First pass: map files to the steps that write them
+    for i, step in enumerate(steps):
+        for f in step.get("writes", []):
+            stem = Path(f).stem
+            file_to_producer_idx[f] = i
+            file_to_producer_idx[stem] = i
+
+    # Second pass: connect dependencies
+    for i, step in enumerate(steps):
+        desc = step["step"].lower()
+        reads = step.get("reads", [])
+        
+        # 1. Explicit reads field
+        for r in reads:
+            stem = Path(r).stem
+            if r in file_to_producer_idx:
+                deps[i].add(file_to_producer_idx[r])
+            elif stem in file_to_producer_idx:
+                deps[i].add(file_to_producer_idx[stem])
+
+        # 2. Heuristic description matching
+        for filename, producer_idx in file_to_producer_idx.items():
+            if producer_idx == i: continue
+            if filename in desc or f"import {filename}" in desc or f"from {filename}" in desc:
+                deps[i].add(producer_idx)
+        
+        # 3. Test dependency rule
+        is_test = "test_" in desc or "_test" in desc or "run tests" in desc
+        if is_test:
+            for j, s in enumerate(steps):
+                if i == j: continue
+                # Tests depend on all implementation steps
+                if not ("test_" in s["step"].lower() or "_test" in s["step"].lower()):
+                    deps[i].add(j)
+                    
+    return deps
+
+def _topo_sort(steps: List[Dict], deps: Dict[int, set]) -> List[Dict]:
+    """
+    Kahn's algorithm topological sort.
+    """
+    from collections import deque
+    
+    # Build adjacency list (inverse of deps)
+    adj = {i: set() for i in range(len(steps))}
+    in_degree = {i: 0 for i in range(len(steps))}
+    
+    for child, parents in deps.items():
+        for p in parents:
+            adj[p].add(child)
+            in_degree[child] += 1
+            
+    queue = deque([i for i in range(len(steps)) if in_degree[i] == 0])
+    # Tie-breaker: preserve original index order
+    sorted_indices = []
+    
+    while queue:
+        # To preserve stability, we sort the queue if we want strict original-order preference,
+        # but deque is fine for general Kahn.
+        u = queue.popleft()
+        sorted_indices.append(u)
+        
+        for v in sorted(list(adj[u])):
+            in_degree[v] -= 1
+            if in_degree[v] == 0:
+                queue.append(v)
+                
+    if len(sorted_indices) < len(steps):
+        logger.warning("Cycle detected in plan dependencies. Reverting to original order.")
+        return steps
+        
+    return [steps[i] for i in sorted_indices]
+
+from pathlib import Path
