@@ -62,6 +62,11 @@ class KittyAgent:
         setup_read_tools(self.registry)
         setup_git_tools(self.registry)
         setup_test_tools(self.registry)
+
+        # Codebase Indexer
+        from kittycode.context.indexer import CodebaseIndex
+        from kittycode.config.settings import PROJECT_ROOT
+        self._index = CodebaseIndex(PROJECT_ROOT).build()
         
         # We also need a memory tool so Kitty can save facts dynamically
         def action_mem(key: str, value: str) -> str:
@@ -134,10 +139,9 @@ class KittyAgent:
         if kittymd:
             sys_prompt += f"\n\n[PROJECT CONTEXT — KITTY.md]\n{kittymd}"
 
-        # Inject File Tree for codebase indexing
-        from kittycode.tools.fs_tools import action_ls_tree
-        file_tree = action_ls_tree(PROJECT_ROOT, max_depth=2)
-        sys_prompt += f"\n\n[PROJECT STRUCTURE]\n{file_tree}"
+        # Inject hierarchical codebase index
+        if hasattr(self, "_index"):
+            sys_prompt += f"\n\n[CODEBASE INDEX]\n{self._index.to_prompt_block()}"
         
         if not hasattr(self, "history") or not self.history:
             self.history = [{"role": "system", "content": sys_prompt}]
