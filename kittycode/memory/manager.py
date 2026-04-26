@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from kittycode.config.settings import KITTY_GLOBAL_DIR, KITTY_PROJECT_DIR
+from kittycode.security.vault import MemoryVault
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class MemoryManager:
         self._index = None
         self._dim = 384
         self._backend = "unknown"
+        self.vault = MemoryVault()
 
         self._load_metadata()
         self._migrate_legacy_if_needed()
@@ -264,7 +266,7 @@ class MemoryManager:
             self.graph[id_b].append(id_a)
         self._save_state()
 
-    def _get_graph_neighbors(self, memory_ids: List[str], depth: int = 1) -> List[str]:
+    def _get_graph_neighbor_texts(self, memory_ids: List[str], depth: int = 1) -> List[str]:
         visited = set(memory_ids)
         frontier = list(memory_ids)
 
@@ -281,10 +283,8 @@ class MemoryManager:
         for mid in visited:
             idx = self._id_index.get(mid)
             if idx is not None and idx < len(self.metadata):
-                results.append(self.metadata[idx].get("text", ""))
+                results.append(self._decrypt_entry(self.metadata[idx]))
         return results
-
-    # --- Keyword fallback ---
 
     def _keyword_search(self, query: str, k: int, pool: List[Dict] = None) -> List[int]:
         if pool is None:
@@ -326,9 +326,15 @@ class MemoryManager:
             return None
 
         mem_id = str(uuid.uuid4())[:8]
+        
+        # Identity and secret categories are always encrypted
+        storage_text = text
+        if cat in ("identity", "secret"):
+            storage_text = self.vault.encrypt(f"{key}: {value}")
+            
         entry = {
             "id": mem_id,
-            "text": text,
+            "text": storage_text,
             "category": cat,
             "timestamp": time.time(),
             "links": [],
@@ -417,6 +423,15 @@ class MemoryManager:
             json.dump(payload, f, indent=2)
         return {"path": str(export_path), "count": str(len(self.metadata))}
 
+    def _decrypt_entry(self, entry: Dict) -> str:
+        text = str(entry.get("text", ""))
+        if entry.get("category") in ("identity", "secret"):
+            try:
+                return self.vault.decrypt(text)
+            except Exception:
+                return f"[Decryption Error] {text[:20]}..."
+        return text
+
     def get_relevant_context(self, query: str, k: int = 5) -> List[str]:
         if not self.metadata or not query.strip():
             return []
@@ -448,15 +463,15 @@ class MemoryManager:
                 if idx != -1 and idx < len(candidate_pool):
                     mem = candidate_pool[idx]
                     semantic_ids.append(mem.get("id"))
-                    semantic_texts.append(mem.get("text", ""))
+                    semantic_texts.append(self._decrypt_entry(mem))
         else:
             ranked = self._keyword_search(query, search_k, pool=candidate_pool)
             for idx in ranked:
                 mem = candidate_pool[idx]
                 semantic_ids.append(mem.get("id"))
-                semantic_texts.append(mem.get("text", ""))
+                semantic_texts.append(self._decrypt_entry(mem))
 
-        neighbor_texts = self._get_graph_neighbors([mid for mid in semantic_ids if mid], depth=1) if semantic_ids else []
+        neighbor_texts = self._get_graph_neighbor_texts([mid for mid in semantic_ids if mid], depth=1) if semantic_ids else []
 
         seen = set()
         results = []

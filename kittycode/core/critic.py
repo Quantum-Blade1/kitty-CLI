@@ -3,6 +3,9 @@ import re
 from pathlib import Path
 from typing import List, Dict
 from kittycode.config.settings import PROJECT_ROOT
+from kittycode.security.audit_chain import AuditChain
+
+_chain = AuditChain()
 
 logger = logging.getLogger(__name__)
 
@@ -59,20 +62,29 @@ class SafetyCritic:
         if checker:
             verdict = checker(args)
             if not verdict.allowed:
+                _chain.append("BLOCKED", {"tool": tool_name, "reason": verdict.reason, "args": str(args)[:200]})
                 return verdict
 
         # 2. Generic checks that apply to all tools with paths
         if "path" in args:
             verdict = self._check_path_safety(tool_name, args["path"])
             if not verdict.allowed:
+                _chain.append("BLOCKED", {"tool": tool_name, "reason": verdict.reason, "args": str(args)[:200]})
                 return verdict
 
         # 3. Check for unexpected/extra parameters
         verdict = self._check_unexpected_params(tool_name, args)
         if not verdict.allowed:
+            _chain.append("BLOCKED", {"tool": tool_name, "reason": verdict.reason, "args": str(args)[:200]})
             return verdict
 
-        return CriticVerdict(allowed=True, reason="Passed all safety checks", tool_name=tool_name, args=args)
+        verdict = CriticVerdict(allowed=True, reason="Passed all safety checks", tool_name=tool_name, args=args)
+        
+        # Audit logging
+        if tool_name in ("run_cmd", "write"):
+            _chain.append("ALLOWED", {"tool": tool_name})
+            
+        return verdict
 
     def review_batch(self, tool_calls: List[Dict]) -> List[CriticVerdict]:
         """Reviews a batch of tool calls. Returns list of verdicts."""
