@@ -10,8 +10,7 @@ from kittycode.agent.debate import DebateManager
 from kittycode.config.settings import RuntimeConfig
 from kittycode.memory.history import HistoryManager
 from kittycode.tools.viz_tools import setup_viz_tools
-from kittycode.tools.git_tools import setup_git_tools
-from kittycode.tools.test_tools import setup_test_tools
+from kittycode.tools.viz_tools import setup_viz_tools
 from kittycode.tools.dev_tools import setup_dev_tools
 
 MAX_FIX_ITERATIONS = 3
@@ -63,8 +62,7 @@ class KittyAgent:
         setup_fs_tools(self.registry)
         setup_viz_tools(self.registry)
         setup_read_tools(self.registry)
-        setup_git_tools(self.registry)
-        setup_test_tools(self.registry)
+        setup_read_tools(self.registry)
         setup_dev_tools(self.registry)
 
         # Codebase Indexer
