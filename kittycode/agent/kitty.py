@@ -13,7 +13,16 @@ from kittycode.tools.viz_tools import setup_viz_tools
 from kittycode.tools.viz_tools import setup_viz_tools
 from kittycode.tools.dev_tools import setup_dev_tools
 
+from enum import Enum
+class StopReason(Enum):
+    TASK_COMPLETE   = "task_complete"    # model said it is done
+    MAX_ITERATIONS  = "max_iterations"   # hit the loop cap
+    USER_INTERRUPT  = "user_interrupt"   # KeyboardInterrupt caught
+    NO_TOOLS_CALLED = "no_tools_called"  # model stopped calling tools
+    ERROR           = "error"            # unrecoverable exception
+
 MAX_FIX_ITERATIONS = 3
+MAX_AGENT_ITERATIONS = 20
 
 # --- The Agent Soul ---
 KITTY_SYSTEM_PROMPT = """
@@ -241,6 +250,64 @@ After writing fixes, do NOT run the tests yourself. Return "FIXES_APPLIED".
             resp, actions = self.get_response(fix_prompt)
             
         return {"passed": False, "iterations": iterations, "gave_up": True}
+
+    def _build_initial_history(self, user_input: str) -> list:
+        """Helper to initialize the history with the system prompt and user input."""
+        self._update_system_prompt(mode=self.current_mode)
+        return [{"role": "system", "content": self.history[0]["content"]}, {"role": "user", "content": user_input}]
+
+    def run_task(self, user_input: str, status=None) -> dict:
+        """
+        Run the full agentic loop for a task.
+        Returns {"stop_reason": StopReason, "iterations": int, "output": str}
+        """
+        from kittycode.models.llm import extract_content
+        
+        self.current_mode = "Code"
+        history = list(self.history_mgr.trim(self._build_initial_history(user_input)))
+        iteration = 0
+        last_output = ""
+
+        while iteration < MAX_AGENT_ITERATIONS:
+            iteration += 1
+            try:
+                # 1. Generate response
+                result, model_key = self.llm.router.generate(history, task_type=self.current_mode)
+                raw_text = extract_content(result.output)
+                
+                # 2. Execute tools
+                tool_logs, clean_speech = self.engine.execute_tools(raw_text, status=status)
+                history.append({"role": "assistant", "content": clean_speech})
+                last_output = clean_speech
+
+                # Stop condition: no tools were called this turn
+                if not tool_logs:
+                    self.history = self.history_mgr.trim(history)
+                    return {"stop_reason": StopReason.NO_TOOLS_CALLED,
+                            "iterations": iteration, "output": last_output}
+
+                # Stop condition: model declared completion
+                if any(signal in clean_speech.lower() for signal in
+                       ["task complete", "done.", "finished.", "all tests pass"]):
+                    self.history = self.history_mgr.trim(history)
+                    return {"stop_reason": StopReason.TASK_COMPLETE,
+                            "iterations": iteration, "output": last_output}
+
+                # 3. Feed tool results back
+                tool_feedback = "\n".join(tool_logs)
+                history.append({"role": "user", "content": f"[TOOL RESULTS]\n{tool_feedback}"})
+                history = self.history_mgr.trim(history)
+
+            except KeyboardInterrupt:
+                return {"stop_reason": StopReason.USER_INTERRUPT,
+                        "iterations": iteration, "output": last_output}
+            except Exception as e:
+                return {"stop_reason": StopReason.ERROR,
+                        "iterations": iteration, "output": str(e)}
+
+        self.history = self.history_mgr.trim(history)
+        return {"stop_reason": StopReason.MAX_ITERATIONS,
+                "iterations": iteration, "output": last_output}
 
     def get_response(self, user_input: str):
         """Legacy direct response (no planning loop)"""

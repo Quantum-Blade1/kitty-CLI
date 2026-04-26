@@ -327,27 +327,21 @@ def run_app() -> None:
             typewriter_stream(resp, logs=actions)
             state.histories[state.current_mode].append(("kitty", resp, actions))
         else:
-            with console.status("[kruby]orchestrating...[/kruby]", spinner="dots"):
-                queue = kitty.generate_plan(f"MODE: Code. {user_input}")
+            # Code Mode: Autonomous Agentic Loop
+            from kittycode.agent.kitty import StopReason
+            
+            with console.status("[kruby]Kitty is orchestrating...[/kruby]", spinner="dots") as status:
+                result = kitty.run_task(user_input, status=status)
+            
+            resp = result["output"]
+            stop_reason = result["stop_reason"]
+            iterations = result["iterations"]
+            
+            typewriter_stream(resp, logs=[f"Stop Reason: {stop_reason.value}", f"Iterations: {iterations}"])
+            state.histories[state.current_mode].append(("kitty", resp, [f"Agent completed in {iterations} iteration(s): {stop_reason.value}"]))
+            
+            console.print(f"\n[kmuted]Agent completed in {iterations} iteration(s): {stop_reason.value}[/kmuted]")
 
-            if not queue:
-                with console.status("[kruby]thinking...[/kruby]", spinner="dots"):
-                    resp, actions = kitty.get_response(f"MODE: Code. {user_input}")
-                typewriter_stream(resp, logs=actions)
-                state.histories[state.current_mode].append(("kitty", resp, actions))
-            else:
-                total_steps = len(queue)
-                step_count = 1
-                while kitty.planner.has_next_task():
-                    status_obj = console.status(f"Executing step {step_count}/{total_steps}...", spinner="dots")
-                    with status_obj:
-                        resp, actions, task_name = kitty.execute_next_step(status_obj)
-                    typewriter_stream(resp, logs=[f"Task: {task_name}"] + actions)
-                    state.histories[state.current_mode].append(("kitty", resp, actions))
-                    step_count += 1
-
-                with console.status("[kmuted]Wrapping up...[/kmuted]", spinner="dots"):
-                    kitty.planner.generate_reflection()
 
         kitty.flush_all()
 
