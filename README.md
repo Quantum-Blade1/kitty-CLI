@@ -85,7 +85,9 @@ KittyCode utilizes `Typer` and `Rich` to provide a beautiful, structured termina
 ### Memory & State Management
 - `kitty memory list --limit 20` : List recent memory entries.
 - `kitty memory add --key bug_42 --value "router timeout" --category bugs` : Inject a structured fact into memory.
-- `kitty memory find "timeout bug"` : Quantum-assisted search against the memory context.
+- `kitty memory find "timeout bug"` : Quantum-assisted search + Graph-based spreading activation.
+- `kitty memory graph` : Visualise the cognitive knowledge graph in your terminal.
+- `kitty memory link <id_a> <id_b>` : Manually establish a typed relationship between two memories.
 - `kitty memory prune --max 300 --dedupe` : Prune old and duplicate memories.
 - `kitty memory export --path backup.json` : Export structured memory to a JSON payload.
 
@@ -115,6 +117,12 @@ graph TD
         Planner -.-> QA[Quantum Annealing]
         Router[Model Router] -.-> QS[Quantum Superposition]
         Memory[Memory Manager] -.-> QG[Grover Amplification]
+    end
+    
+    subgraph Knowledge Graph
+        QG --> Graph[Cognitive Graph]
+        Graph --> Decay[Decay Engine]
+        Graph --> Activation[Spreading Activation]
     end
     
     subgraph External Models
@@ -165,8 +173,11 @@ sequenceDiagram
 
     User->>CLI: Prompt (e.g. "Fix tests")
     CLI->>Agent: Route Request
-    Agent->>Mem: quantum_retrieve(context)
-    Mem-->>Agent: Amplified Context
+    Agent->>Mem: get_relevant_context(Prompt)
+    Mem->>Mem: quantum_retrieve() [Pre-filter]
+    Mem->>Mem: spreading_activation() [Graph expansion]
+    Mem->>Mem: apply_reinforcement() [Weights reset]
+    Mem-->>Agent: Amplified Associative Context
     Agent->>Plan: generate_plan(Prompt + Context)
     Plan->>Plan: quantum_anneal_steps()
     Plan-->>Agent: Task Queue
@@ -227,6 +238,41 @@ Sensitive facts (passwords, identity details, API keys) are never stored in plai
 - **Encryption**: Uses AES-256-GCM (Fernet) authenticated encryption.
 - **Key Derivation**: Keys are uniquely derived per-machine using the stable Machine UUID + PBKDF2-HMAC-SHA256 (200,000 iterations).
 - **Auto-Protection**: Memories tagged as `identity` or `secret` are encrypted before hitting the disk.
+
+---
+
+## Cognitive Knowledge Graph
+
+KittyCode has evolved from a flat list of facts to a **Typed Knowledge Graph**. This allows Kitty to understand context not just through keywords, but through structural relationships.
+
+### 1. Spreading Activation Retrieval
+When you ask a question, Kitty doesn't just look for matches. She uses **Spreading Activation** to "light up" the graph. 
+- **The Flow**: A semantic match acts as a seed. The energy spreads to neighbors (e.g., if a "Bug" node is found, the related "File" and "Feature" nodes are automatically pulled into context).
+- **Benefit**: Kitty can remember that *Feature X* had a *Bug Y* in *File Z* even if your query only mentioned "Bug Y".
+
+### 2. Temporal Decay Engine
+Inspired by the **Ebbinghaus Forgetting Curve**, Kitty's memory is organic.
+- **Node Weight**: Every memory starts with a weight of 1.0.
+- **Natural Decay**: Weights decrease over time (Ebbinghaus-style exponential decay). 
+- **Reinforcement**: Every time a memory is retrieved or mentioned, it is **Reinforced**, resetting its weight and making it more resistant to future decay.
+- **Long-Term Memory**: Critical categories like `preference` and `identity` are immune to decay.
+
+### 3. Visual Graph TUI
+You can inspect Kitty's internal state using the terminal visualizer.
+
+```text
+                            Memory Knowledge Graph                             
++-----------------------------------------------------------------------------+
+| ID     | Type     | Label                    | Weight     | Edges | Accessed|
+|--------+----------+--------------------------+------------+-------+---------|
+| 03b2f7 | person   | fav_lang: Python         | ########## | 1     | 0.0h ago|
+|        |          |                          | 1.00       |       |         |
+|--------+----------+--------------------------+------------+-------+---------|
+| cb1fa0 | concept  | project: KittyCode       | ########## | 1     | 0.0h ago|
+|        |          |                          | 1.00       |       |         |
++-----------------------------------------------------------------------------+
+2 nodes | 1 edges
+```
 
 ---
 
