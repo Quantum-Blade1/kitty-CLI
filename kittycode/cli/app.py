@@ -833,6 +833,36 @@ def run(
             console.print(f"[bold]Task:[/bold] {r['task']}")
             console.print(render_bubble("kitty", r["response"], logs=r["actions"]))
 
+@app.command("fix-tests", help="Run tests and auto-fix failures. Loops up to 3 times.")
+@observe_command("fix-tests")
+def fix_tests(
+    test_cmd: str = typer.Option("", help="Test command. Auto-detected if empty."),
+) -> None:
+    """Run tests and auto-fix failures by delegating to the agentic loop."""
+    agent = ensure_kitty()
+    
+    with console.status("[bold cyan]Initializing test-fix loop...[/bold cyan]") as status:
+        try:
+            result = agent.run_and_fix_tests(test_cmd=test_cmd, status=status)
+            agent.flush_all()
+        except Exception as e:
+            if is_json_mode():
+                emit_json({"ok": False, "error": str(e)})
+            else:
+                console.print(f"[bold red]Test-fix loop failed:[/bold red] {e}")
+            raise typer.Exit(code=EXIT_RUNTIME_ERROR)
+
+    if result["passed"]:
+        if is_json_mode():
+            emit_json({"ok": True, "iterations": result["iterations"]})
+        else:
+            console.print(f"\n[bold green]✅ All tests pass after {result['iterations']} iteration(s).[/bold green]")
+    else:
+        if is_json_mode():
+            emit_json({"ok": False, "iterations": result["iterations"], "gave_up": True})
+        else:
+            console.print(f"\n[bold red]❌ Could not fix all tests after {result['iterations']} attempts. Manual intervention needed.[/bold red]")
+
 
 @app.command(help="Show current runtime configuration.")
 @observe_command("config")

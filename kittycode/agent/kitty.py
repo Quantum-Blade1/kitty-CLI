@@ -12,6 +12,9 @@ from kittycode.memory.history import HistoryManager
 from kittycode.tools.viz_tools import setup_viz_tools
 from kittycode.tools.git_tools import setup_git_tools
 from kittycode.tools.test_tools import setup_test_tools
+from kittycode.tools.dev_tools import setup_dev_tools
+
+MAX_FIX_ITERATIONS = 3
 
 # --- The Agent Soul ---
 KITTY_SYSTEM_PROMPT = """
@@ -62,6 +65,7 @@ class KittyAgent:
         setup_read_tools(self.registry)
         setup_git_tools(self.registry)
         setup_test_tools(self.registry)
+        setup_dev_tools(self.registry)
 
         # Codebase Indexer
         from kittycode.context.indexer import CodebaseIndex
@@ -175,16 +179,12 @@ class KittyAgent:
         self.debate_active = self.total_plan_size > 3
         return queue
 
-    def execute_next_step(self, status=None, max_retries: int = 2):
-        """
-        Pops a task and executes via debate loop or standard LLM.
-        Includes an autonomous 'Auto-Fix' turn if a step fails (e.g. tests fail).
-        """
+    def execute_next_step(self, status=None):
+        """Pops a task and executes via debate loop or standard LLM."""
         if not self.planner.has_next_task():
             return "No tasks in queue.", [], ""
             
         task_obj = self.planner.pop_task()
-        # Handle backward compatibility / dicts
         if isinstance(task_obj, dict):
             task_str = task_obj.get("step", str(task_obj))
             is_executable = task_obj.get("executable", False)
@@ -192,50 +192,57 @@ class KittyAgent:
             task_str = str(task_obj)
             is_executable = True 
             
-        retry_count = 0
-        final_response = ""
-        final_actions = []
-
-        while retry_count <= max_retries:
-            if self.debate_active:
-                self._update_system_prompt(mode="Code" if is_executable else "Reasoning")
-                response, actions, updated_history = self.debate.run_step(task_str, self.history, status)
-            else:
-                if is_executable:
-                    self._update_system_prompt(mode="Code")
-                    input_text = f"[AUTONOMOUS STEP] Execute this specific step using tools: {task_str}"
-                else:
-                    self._update_system_prompt(mode="Reasoning")
-                    input_text = f"[REASONING STEP] Process this specific step. DO NOT use structural tools (write/mkdir/run_cmd): {task_str}"
-                    
-                response, actions, updated_history = self.llm.get_response(input_text, self.history, status=status)
-            
-            self.history = self.history_mgr.trim(updated_history)
-            final_response = response
-            final_actions.extend(actions)
-
-            # Check for failures in the actions (e.g. "Tests FAILED")
-            has_failure = any("FAILED" in a or "Error" in a or "Blocked" in a for a in actions)
-            
-            if not has_failure or not is_executable:
-                break
-                
-            # AUTO-FIX TURN
-            retry_count += 1
-            if retry_count <= max_retries:
-                if status:
-                    status.update(f"[bold yellow]Turn failed. Auto-Fixing (Attempt {retry_count}/{max_retries})...[/bold yellow]")
-                
-                fix_input = f"[AUTO-FIX TURN] The previous step failed or encountered errors:\n{chr(10).join(actions)}\n\nPlease analyze the error, fix the code if necessary, and try the step again."
+        if self.debate_active:
+            self._update_system_prompt(mode="Code" if is_executable else "Reasoning")
+            response, actions, updated_history = self.debate.run_step(task_str, self.history, status)
+        else:
+            if is_executable:
                 self._update_system_prompt(mode="Code")
-                # Continue the loop with the fix_input
-                task_str = fix_input
+                input_text = f"[AUTONOMOUS STEP] Execute this specific step using tools: {task_str}"
             else:
-                if status:
-                    status.update(f"[bold red]Max retries reached for step. Proceeding anyway.[/bold red]")
+                self._update_system_prompt(mode="Reasoning")
+                input_text = f"[REASONING STEP] Process this specific step: {task_str}"
+                
+            response, actions, updated_history = self.llm.get_response(input_text, self.history, status=status)
+        
+        self.history = self.history_mgr.trim(updated_history)
+        self.planner.log_task_result(task_str, actions)
+        return response, actions, task_str
 
-        self.planner.log_task_result(task_str, final_actions)
-        return final_response, final_actions, task_str
+    def run_and_fix_tests(self, test_cmd: str = "", status=None) -> dict:
+        """
+        Agentic test-fix loop.
+        """
+        from kittycode.tools.dev_tools import action_run_tests
+        
+        iterations = 0
+        while iterations < MAX_FIX_ITERATIONS:
+            iterations += 1
+            if status:
+                status.update(f"[bold cyan]Running Tests (Iteration {iterations}/{MAX_FIX_ITERATIONS})...[/bold cyan]")
+            
+            result = action_run_tests(test_cmd=test_cmd)
+            if result["passed"]:
+                return {"passed": True, "iterations": iterations, "output": result["output"]}
+            
+            if status:
+                status.update(f"[bold yellow]Tests FAILED. Analyzing failures and applying fixes...[/bold yellow]")
+            
+            failure_output = result["output"]
+            fix_prompt = f"""
+The test suite failed. Fix the code so all tests pass.
+Do NOT modify the test files — only fix the implementation.
+Use action_write_raw (not action_write) to avoid confirmation prompts.
+
+FAILURES:
+{failure_output}
+
+After writing fixes, do NOT run the tests yourself. Return "FIXES_APPLIED".
+"""
+            # Perform a full agent turn to fix the failures
+            resp, actions = self.get_response(fix_prompt)
+            
+        return {"passed": False, "iterations": iterations, "gave_up": True}
 
     def get_response(self, user_input: str):
         """Legacy direct response (no planning loop)"""
