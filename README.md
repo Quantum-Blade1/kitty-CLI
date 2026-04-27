@@ -13,7 +13,7 @@ KittyCode is a production-grade agentic CLI that understands your entire project
 
 ---
 
-## ✨ Core Features
+## Core Features
 
 *   **Plan-First Autonomous Architecture**: Kitty generates a formal architectural plan and step-by-step queue *before* she starts modifying your files.
 *   **Multi-Model Intelligence**: Dynamically routes tasks between state-of-the-art models like Qwen 2.5 Coder, DeepSeek-R1, and GPT-4o based on your preferences. Includes Auto-Healing for API failures.
@@ -23,13 +23,13 @@ KittyCode is a production-grade agentic CLI that understands your entire project
 
 ---
 
-## 🚀 Quick Start (Installation)
+## Quick Start (Installation)
 
 KittyCode works on **Windows, macOS, and Linux**.
 
 ### Option A: Global pip installation (Recommended)
 ```bash
-pip install kittycode-agent --upgrade
+pip install kittycode-agent==2.3.0
 ```
 
 ### Option B: Clone the repository
