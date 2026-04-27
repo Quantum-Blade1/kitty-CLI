@@ -78,14 +78,33 @@ stateDiagram-v2
 
 ### 3.2 Model Routing & Quantum Fallbacks
 
-Found in `kittycode/models/router.py`, the routing system is designed to handle API failures, rate limits, and budget constraints without crashing.
+Found in `kittycode/models/router.py` and `kittycode/quantum/router_q.py`, the routing system is designed to handle API failures, rate limits, and budget constraints without crashing. It features a unique **Quantum-Inspired Routing** algorithm written in pure Python.
 
-- **Primary Models**: High-end models like `Qwen 2.5 Coder` or `DeepSeek-R1` are selected based on user preference.
-- **Health Tracking**: The system tracks the latency and success rate of every model. If a model fails 3 times, it is marked as "Unhealthy."
+#### Quantum-Inspired Routing Architecture
+Instead of static fallback lists, KittyCode uses a probabilistic model inspired by quantum mechanics to select the best model for a specific task type (Chat, Code, Thought).
+
+1. **Superposition**: Every available model is assigned a complex amplitude. The magnitude represents the model's health score (0-1), and the phase angle represents how well the model conceptually fits the current task (e.g., Code = 0 rad, Chat = 45 deg).
+2. **Interference**: Recent successes or failures on similar tasks dynamically shift the phase of the models. Success causes constructive interference (boosting probability), while failure causes destructive interference.
+3. **Amplitude Amplification**: A Grover-inspired algorithm reflects the amplitudes around the mean to exponentially boost the highest-scoring candidate relative to the others.
+4. **Measurement**: The final model is selected by sampling the probability distribution (the Born rule: $|amplitude|^2$).
+
+```mermaid
+flowchart LR
+    A[Available Models] -->|Health & Task Type| B(Superposition State)
+    B -->|Recent Telemetry| C{Interference}
+    C -->|Success| D[Constructive Phase Shift]
+    C -->|Failure| E[Destructive Phase Shift]
+    D --> F(Amplitude Amplification)
+    E --> F
+    F -->|Born Rule Measurement| G[Selected Model]
+    
+    style B fill:#2b2b2b,stroke:#8b5cf6
+    style F fill:#2b2b2b,stroke:#8b5cf6
+```
+
+#### Health Tracking & Auto-Healing
+- **Health Tracking**: The system tracks the latency and success rate of every model. If a model fails 3 times, it is marked as "Unhealthy" and its quantum amplitude approaches zero.
 - **Auto-Healing Authentication**: If an API returns a `401 Unauthorized` (e.g., a bad key), the Router intercepts the error, pauses the loop, and prompts the user to re-run the setup wizard, preventing infinite crash loops.
-- **Quantum-Inspired Architecture (`kittycode.quantum`)**: To handle complex ambiguity without external dependencies, Kitty implements pure-Python probabilistic heuristics:
-  - **Superposition Routing (`router_q.py`)**: Models are treated as being in a state of superposition. The router collapses to a specific model based on "phase interference" (latency, cost, token limits) and historical success rates, dynamically shifting to cheaper models (like `gpt-4o-mini`) to prevent `402 Payment Required` errors.
-  - **Annealing-Inspired Planning (`planner_q.py`)**: During the Plan-First phase, the agent uses a simulated quantum annealing algorithm to minimize task sequencing risk, sorting dependencies to find the global minimum cost path for execution.
 
 ### 3.3 Tool Engine & Sandbox Security
 
@@ -96,13 +115,38 @@ The `ToolEngine` (`kittycode/tools/engine.py`) exposes a specific set of tools t
 - **Command Whitelisting**: Potentially destructive commands are flagged.
 - **Security Patch 1.0**: The `kitty secure` command triggers the `audit_security_posture()` function, which scans for leaked API keys in log files, ensures the `.env` file is permission-locked, and verifies key integrity.
 
-### 3.4 Structured Memory & The Vault
+### 3.4 Structured Memory & The Cryptographic Vault
 
-KittyCode remembers your preferences, architectural decisions, and common bugs.
+KittyCode remembers your preferences, architectural decisions, and common bugs using a local JSON-backed structured graph (`memory/manager.py`). 
 
-- **Memory Manager (`memory/manager.py`)**: Stores facts in a JSON-backed structured graph. To search this graph efficiently, it utilizes **Grover-style amplitude amplification (`memory_q.py`)** for $O(\sqrt{N})$ token matching pre-filtering, simulating quantum search probabilities before falling back to classic keyword matching.
-- **The Security Vault (`security/vault.py`)**: Because memory can contain sensitive API keys or proprietary code, facts are encrypted at rest using **AES-256-GCM**.
-  - **Cryptographic Key Derivation**: The encryption key is dynamically derived on the host machine. It extracts a stable hardware identifier (e.g., `wmic csproduct get UUID` on Windows, or `/etc/machine-id` on Unix). This machine ID, combined with an optional user passphrase, is salted (SHA-256) and passed through **PBKDF2-HMAC with 200,000 iterations** to generate a secure 32-byte (256-bit) encryption key, ensuring local privacy without hardcoded secrets.
+To protect sensitive data extracted during autonomous operations, Kitty implements a zero-dependency **Cryptographic Vault** (`security/vault.py`).
+
+#### Vault Cryptography Architecture
+The Vault ensures that even if an attacker gains read access to the `.kitty/memory.json` file, they cannot extract sensitive facts without local execution context.
+
+1. **Machine Fingerprinting**: The vault generates a stable machine identifier (e.g., reading SMBIOS UUID on Windows or `/etc/machine-id` on Linux).
+2. **Key Derivation**: It applies **PBKDF2** (Password-Based Key Derivation Function 2) using HMAC-SHA256 with 200,000 iterations. It combines the machine ID and an optional user passphrase to generate a robust 32-byte cryptographic key.
+3. **AES-256-GCM Encryption**: The derived key powers a Fernet symmetric encryption implementation to encrypt and decrypt sensitive memory nodes on the fly.
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Vault
+    participant OS as Operating System
+    participant Disk as memory.json
+    
+    Note over Vault, OS: Initialization Phase
+    Vault->>OS: Request Machine UUID
+    OS-->>Vault: Return Hardware Fingerprint
+    Vault->>Vault: PBKDF2(UUID + Passphrase, iterations=200k)
+    Vault->>Vault: Derive 256-bit AES Key
+    
+    Note over Agent, Disk: Runtime Phase
+    Agent->>Vault: encrypt("sensitive_api_key_123")
+    Vault->>Vault: AES-256-GCM Encryption
+    Vault-->>Agent: gAAAAABm... encrypted_token
+    Agent->>Disk: Save Graph Node
+```
 
 ---
 
