@@ -6,21 +6,24 @@ KittyCode is a production-grade agentic CLI that understands your entire project
 
 ---
 
-## 🚀 Quick Start (Installation)
+## Quick Start (Installation)
 
 KittyCode works on **Windows, macOS, and Linux**.
 
-### 1. Clone the repository
+### 1. global pip installation 
+pip install kittycode-agent==2.0.0
+
+### 2. Clone the repository
 ```bash
 git clone https://github.com/Quantum-Blade1/kitty-CLI.git
 cd kitty-CLI
 ```
 
-### 2. Run the Installer
+### 3. Run the Installer
 *   **Windows**: Double-click `install.bat`
 *   **Mac/Linux**: Run `bash install.sh`
 
-### 3. Initialize Kitty
+### 4. Initialize Kitty
 After installation, activate your environment and run the setup wizard:
 ```bash
 # Windows
@@ -33,7 +36,7 @@ kitty setup
 
 ---
 
-## 🛠️ Core Features
+## Core Features
 
 *   **Autonomous Coding**: Moves through phases (Plan -> Code -> Verify -> Commit) without needing constant guidance.
 *   **Multi-Model Intelligence**: Dynamically routes tasks between Qwen 2.5 Coder, DeepSeek-R1, and GPT-4o for maximum logic and speed.
@@ -42,7 +45,7 @@ kitty setup
 
 ---
 
-## 🐈 Commands
+## Commands
 
 | Command | Description |
 | :--- | :--- |
@@ -53,5 +56,5 @@ kitty setup
 
 ---
 
-## ⚖️ License
+## License
 MIT License. Created with ❤️ by Krish and the KittyCode open-source community.
