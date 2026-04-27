@@ -11,7 +11,9 @@ KittyCode is a production-grade agentic CLI that understands your entire project
 KittyCode works on **Windows, macOS, and Linux**.
 
 ### 1. global pip installation 
+```bash
 pip install kittycode-agent==2.0.0
+```
 
 ### 2. Clone the repository
 ```bash
