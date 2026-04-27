@@ -325,23 +325,22 @@ def onboarding() -> None:
     
     # OpenRouter
     masked_or = f"{OPENROUTER_KEY[:8]}...{OPENROUTER_KEY[-4:]}" if OPENROUTER_KEY else "Not Set"
-    console.print(f"\n[kruby]OpenRouter Key Status:[/kruby] [ktext]{masked_or}[/ktext]")
-    if not OPENROUTER_KEY or Prompt.ask("[kmuted]Do you want to update/change your OpenRouter Key?[/kmuted]", choices=["y", "n"], default="n") == "y":
-        console.print("[kmuted]Get one at: https://openrouter.ai/keys[/kmuted]")
-        orkey = Prompt.ask("[kruby]Enter OpenRouter API Key[/kruby]", password=True)
-        if orkey:
-            save_env_var("OPENROUTER_API_KEY", orkey)
-            console.print("[kgreen]Key updated successfully![/kgreen]")
+    console.print(f"\n[kruby]Current OpenRouter Key:[/kruby] [ktext]{masked_or}[/ktext]")
+    console.print("[kmuted]Get one at: https://openrouter.ai/keys[/kmuted]")
+    orkey = Prompt.ask("[kruby]Enter OpenRouter API Key[/kruby] [kmuted](Enter to keep current)[/kmuted]", password=True, default=OPENROUTER_KEY)
+    if orkey and orkey != OPENROUTER_KEY:
+        save_env_var("OPENROUTER_API_KEY", orkey)
+        console.print("[kgreen]Key updated successfully![/kgreen]")
 
     # Gemini
     masked_g = f"{GEMINI_KEY[:8]}...{GEMINI_KEY[-4:]}" if GEMINI_KEY else "Not Set"
-    console.print(f"\n[kruby]Gemini Key Status:[/kruby] [ktext]{masked_g}[/ktext]")
-    if not GEMINI_KEY or Prompt.ask("[kmuted]Do you want to update/change your Gemini Key?[/kmuted]", choices=["y", "n"], default="n") == "y":
-        console.print("[kmuted]Get one at: https://aistudio.google.com/app/apikey[/kmuted]")
-        gkey = Prompt.ask("[kruby]Enter Gemini API Key[/kruby]", password=True)
-        if gkey:
-            save_env_var("GEMINI_API_KEY", gkey)
-            console.print("[kgreen]Key updated successfully![/kgreen]")
+    console.print(f"\n[kruby]Current Gemini Key:[/kruby] [ktext]{masked_g}[/ktext]")
+    console.print("[kmuted]Get one at: https://aistudio.google.com/app/apikey[/kmuted]")
+    gkey = Prompt.ask("[kruby]Enter Gemini API Key[/kruby] [kmuted](Enter to keep current)[/kmuted]", password=True, default=GEMINI_KEY)
+    if gkey and gkey != GEMINI_KEY:
+        save_env_var("GEMINI_API_KEY", gkey)
+        console.print("[kgreen]Key updated successfully![/kgreen]")
+
 
 
     # 4. Primary Model
