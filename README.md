@@ -8,7 +8,7 @@
 
 KittyCode is a production-grade agentic CLI that understands your entire project, plans its own tasks, and writes high-quality code across multiple files autonomously. Designed to be a transparent pair-programmer, you watch her think, plan, and execute in real-time.
 
-> 📖 **Curious how it works under the hood?**  
+>  **Curious how it works under the hood?**  
 > Check out the [Architectural Deep Dive & Developer Guide](ABOUT.md) for detailed diagrams, security documentation, and system architecture.
 
 ---
@@ -49,7 +49,7 @@ kitty setup
 
 ---
 
-## 🛠️ Usage Commands
+## Usage Commands
 
 | Command | Description |
 | :--- | :--- |
@@ -60,9 +60,9 @@ kitty setup
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributors! Please review our [Developer Guide](ABOUT.md#5-developer--contributor-guide) to understand the project structure and setup instructions.
 
 ## 📄 License
-MIT License. Created with ❤️ by Krish and the KittyCode open-source community.
+MIT License. Created with by Krish and the KittyCode open-source community.
