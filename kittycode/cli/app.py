@@ -245,15 +245,68 @@ def select_theme() -> None:
     time.sleep(1.0)
 
 
+@app.command("secure", help="Run Security Patch 1.0: Audit for leaked keys and insecure configs.")
+@observe_command("secure")
+def secure_cmd() -> None:
+    from kittycode.security.vault import audit_security_posture
+    clear()
+    console.print(get_header("Security Audit"))
+    console.print("\n[kruby][kitty] Security Patch Update v1.0[/kruby]\n")
+    
+    with console.status("[kruby]Scanning for vulnerabilities...[/kruby]"):
+        report = audit_security_posture()
+    
+    table = Table(border_style="kborder", expand=False)
+    table.add_column("Audit Check", style="ktext")
+    table.add_column("Result", justify="center")
+    table.add_column("Remediation", style="kmuted")
+    
+    for check in report["checks"]:
+        status = "[green]SAFE[/green]" if check["ok"] else "[red]VULNERABLE[/red]"
+        table.add_row(check["name"], status, check["fix"])
+    
+    console.print(table)
+    if not report["ok"]:
+        console.print("\n[bold red]⚠️ Security risks detected! Follow the remediation steps above.[/bold red]")
+    else:
+        console.print("\n[bold green]✅ Security scan passed. Your Kitty is safe.[/bold green]")
+    
+    raise typer.Exit(code=EXIT_OK)
+
+
+def check_path_diagnostic() -> None:
+    import sys
+    import os
+    from pathlib import Path
+    
+    python_bin = Path(sys.executable).parent / "Scripts" if os.name == "nt" else Path(sys.executable).parent
+    is_in_path = any(str(python_bin).lower() in p.lower() for p in os.environ.get("PATH", "").split(os.pathsep))
+    
+    if not is_in_path:
+        console.print("\n[bold yellow]⚠️ PATH Diagnostic Warning:[/bold yellow]")
+        console.print(f"[ktext]It looks like your Python Scripts folder is NOT in your PATH.[/ktext]")
+        console.print(f"[kmuted]Path: {python_bin}[/kmuted]")
+        console.print("\n[kwhite]To fix this on Windows:[/kwhite]")
+        console.print("1. Search for 'Edit the system environment variables'")
+        console.print("2. Click 'Environment Variables'")
+        console.print("3. Find 'Path' in 'User variables' and click Edit")
+        console.print(f"4. Add this line: [kruby]{python_bin}[/kruby]")
+        console.print("5. Restart your terminal.\n")
+
+
 def onboarding() -> None:
     from kittycode.config.env_utils import save_env_var
     ensure_kitty()
     clear()
-    console.print(Align.center(Text("\n^^ Welcome to KittyCode v2.0", style="kruby bold")))
+    console.print(Align.center(Text("\n^^ Welcome to KittyCode v2.1", style="kruby bold")))
     console.print(Align.center(Text("The autonomous agent that works in your codebase.\n", style="ktext")))
     
+    # 0. Path Diagnostic
+    check_path_diagnostic()
+
     # 1. Identity
-    name = Prompt.ask("[kruby]What is your name?[/kruby]").strip() or "Friend"
+    current_name = kitty.memory.get("user_name") or "Friend"
+    name = Prompt.ask(f"[kruby]What is your name?[/kruby] [kmuted](current: {current_name})[/kmuted]", default=current_name).strip()
     kitty.memory.set("user_name", name)
     state.user_name = name
     console.print(f"\n[ktext]Nya~ Nice to meet you, {name}.[/ktext]")
@@ -270,21 +323,26 @@ def onboarding() -> None:
     
     from kittycode.config.settings import OPENROUTER_KEY, GEMINI_KEY
     
-    if not OPENROUTER_KEY:
-        console.print("\n[kred]Missing OpenRouter Key![/kred]")
+    # OpenRouter
+    masked_or = f"{OPENROUTER_KEY[:8]}...{OPENROUTER_KEY[-4:]}" if OPENROUTER_KEY else "Not Set"
+    console.print(f"\n[kruby]OpenRouter Key Status:[/kruby] [ktext]{masked_or}[/ktext]")
+    if not OPENROUTER_KEY or Prompt.ask("[kmuted]Do you want to update/change your OpenRouter Key?[/kmuted]", choices=["y", "n"], default="n") == "y":
         console.print("[kmuted]Get one at: https://openrouter.ai/keys[/kmuted]")
         orkey = Prompt.ask("[kruby]Enter OpenRouter API Key[/kruby]", password=True)
         if orkey:
             save_env_var("OPENROUTER_API_KEY", orkey)
-            console.print("[kgreen]Key saved to ~/.kittycode/.env[/kgreen]")
+            console.print("[kgreen]Key updated successfully![/kgreen]")
 
-    if not GEMINI_KEY:
-        console.print("\n[kred]Missing Gemini Key (Optional but recommended)[/kred]")
+    # Gemini
+    masked_g = f"{GEMINI_KEY[:8]}...{GEMINI_KEY[-4:]}" if GEMINI_KEY else "Not Set"
+    console.print(f"\n[kruby]Gemini Key Status:[/kruby] [ktext]{masked_g}[/ktext]")
+    if not GEMINI_KEY or Prompt.ask("[kmuted]Do you want to update/change your Gemini Key?[/kmuted]", choices=["y", "n"], default="n") == "y":
         console.print("[kmuted]Get one at: https://aistudio.google.com/app/apikey[/kmuted]")
-        gkey = Prompt.ask("[kruby]Enter Gemini API Key (Enter to skip)[/kruby]", password=True)
+        gkey = Prompt.ask("[kruby]Enter Gemini API Key[/kruby]", password=True)
         if gkey:
             save_env_var("GEMINI_API_KEY", gkey)
-            console.print("[kgreen]Key saved to ~/.kittycode/.env[/kgreen]")
+            console.print("[kgreen]Key updated successfully![/kgreen]")
+
 
     # 4. Primary Model
     clear()

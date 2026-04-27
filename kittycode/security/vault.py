@@ -49,3 +49,63 @@ class MemoryVault:
 
     def decrypt(self, token: str) -> str:
         return self._fernet.decrypt(token.encode()).decode()
+
+
+def audit_security_posture():
+    """Performs a security audit of the KittyCode environment."""
+    from kittycode.config.settings import ENV_PATH, OPENROUTER_KEY, GEMINI_KEY, KITTY_PROJECT_DIR
+    import os
+
+    checks = []
+    
+    # 1. ENV File Exists
+    env_ok = ENV_PATH.exists()
+    checks.append({
+        "name": "Global .env Configuration",
+        "ok": env_ok,
+        "fix": "Run 'kitty setup' to initialize your global environment."
+    })
+    
+    # 2. Key Length Checks
+    for key_name, key_val in [("OpenRouter", OPENROUTER_KEY), ("Gemini", GEMINI_KEY)]:
+        if key_val:
+            is_valid = len(key_val) > 20
+            checks.append({
+                "name": f"{key_name} Key Integrity",
+                "ok": is_valid,
+                "fix": f"Your {key_name} key looks too short. Please re-enter it in 'kitty setup'."
+            })
+    
+    # 3. Log Leak Check
+    log_file = KITTY_PROJECT_DIR / "router_log.json"
+    leak_detected = False
+    if log_file.exists():
+        log_content = log_file.read_text()
+        if OPENROUTER_KEY and OPENROUTER_KEY in log_content:
+            leak_detected = True
+            
+    checks.append({
+        "name": "Credential Leak Audit",
+        "ok": not leak_detected,
+        "fix": "Leaked keys found in logs! Delete .kitty/router_log.json and rotate your API keys immediately."
+    })
+    
+    # 4. File Permissions (Unix only)
+    perm_ok = True
+    if os.name != "nt" and env_ok:
+        mode = os.stat(ENV_PATH).st_mode
+        # Check if world readable
+        if mode & 0o007:
+            perm_ok = False
+            
+    checks.append({
+        "name": "Environment Permissions",
+        "ok": perm_ok,
+        "fix": f"Run 'chmod 600 {ENV_PATH}' to secure your keys."
+    })
+
+    return {
+        "ok": all(c["ok"] for c in checks),
+        "checks": checks
+    }
+
