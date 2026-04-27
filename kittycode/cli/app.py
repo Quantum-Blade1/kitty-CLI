@@ -387,7 +387,19 @@ def get_user_input() -> str:
     return first_line
 
 
+def handle_auth_error(error_msg: str) -> bool:
+    """Detects 401/Auth errors and offers immediate remediation."""
+    if "401" in error_msg or "unauthorized" in error_msg.lower() or "invalid api key" in error_msg.lower():
+        console.print(f"\n[bold red]🚫 Authentication Error Detected![/bold red]")
+        console.print(f"[ktext]Kitty says: {error_msg}[/ktext]")
+        if Prompt.ask("\n[kruby]Would you like to re-run the Setup Wizard to fix your API keys?[/kruby]", choices=["y", "n"], default="y") == "y":
+            onboarding()
+            return True
+    return False
+
+
 def run_app() -> None:
+
     ensure_kitty()
     
     # Check if first run
@@ -455,8 +467,12 @@ def run_app() -> None:
                 trace_id = new_trace()
                 get_logger("cli.repl").info("chat_start", trace_id=trace_id, mode="Chat", input_length=len(user_input))
                 resp, actions = kitty.get_chat_response(user_input)
+                
+            if "Error" in resp and handle_auth_error(resp):
+                continue
 
             typewriter_stream(resp, logs=actions)
+
             state.histories[state.current_mode].append(("kitty", resp, actions))
         else:
             # Code Mode: Autonomous Production Loop
@@ -464,7 +480,12 @@ def run_app() -> None:
                 result = kitty.run_task(user_input, status=status)
             
             resp = result["output"]
+            
+            if "Error" in resp and handle_auth_error(resp):
+                continue
+                
             stop_reason = result["stop_reason"].value
+
             iterations = result["iterations"]
             
             console.print(render_bubble("kitty", resp, state.user_name, logs=[]))
