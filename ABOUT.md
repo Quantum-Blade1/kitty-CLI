@@ -83,7 +83,9 @@ Found in `kittycode/models/router.py`, the routing system is designed to handle 
 - **Primary Models**: High-end models like `Qwen 2.5 Coder` or `DeepSeek-R1` are selected based on user preference.
 - **Health Tracking**: The system tracks the latency and success rate of every model. If a model fails 3 times, it is marked as "Unhealthy."
 - **Auto-Healing Authentication**: If an API returns a `401 Unauthorized` (e.g., a bad key), the Router intercepts the error, pauses the loop, and prompts the user to re-run the setup wizard, preventing infinite crash loops.
-- **Quantum-Inspired Routing**: A probabilistic fallback mechanism that shifts the task to a cheaper, faster model (like `gpt-4o-mini`) if the primary model is unavailable or if the token limit is exceeded to prevent `402 Payment Required` errors.
+- **Quantum-Inspired Architecture (`kittycode.quantum`)**: To handle complex ambiguity without external dependencies, Kitty implements pure-Python probabilistic heuristics:
+  - **Superposition Routing (`router_q.py`)**: Models are treated as being in a state of superposition. The router collapses to a specific model based on "phase interference" (latency, cost, token limits) and historical success rates, dynamically shifting to cheaper models (like `gpt-4o-mini`) to prevent `402 Payment Required` errors.
+  - **Annealing-Inspired Planning (`planner_q.py`)**: During the Plan-First phase, the agent uses a simulated quantum annealing algorithm to minimize task sequencing risk, sorting dependencies to find the global minimum cost path for execution.
 
 ### 3.3 Tool Engine & Sandbox Security
 
@@ -98,8 +100,9 @@ The `ToolEngine` (`kittycode/tools/engine.py`) exposes a specific set of tools t
 
 KittyCode remembers your preferences, architectural decisions, and common bugs.
 
-- **Memory Manager (`memory/manager.py`)**: Stores facts in a JSON-backed structured graph. It uses a keyword/semantic simulation to retrieve relevant context before asking the LLM.
-- **The Security Vault (`security/vault.py`)**: Sensitive data within memory can be AES-256-GCM encrypted using a machine-derived key to ensure local privacy.
+- **Memory Manager (`memory/manager.py`)**: Stores facts in a JSON-backed structured graph. To search this graph efficiently, it utilizes **Grover-style amplitude amplification (`memory_q.py`)** for $O(\sqrt{N})$ token matching pre-filtering, simulating quantum search probabilities before falling back to classic keyword matching.
+- **The Security Vault (`security/vault.py`)**: Because memory can contain sensitive API keys or proprietary code, facts are encrypted at rest using **AES-256-GCM**.
+  - **Cryptographic Key Derivation**: The encryption key is dynamically derived on the host machine. It extracts a stable hardware identifier (e.g., `wmic csproduct get UUID` on Windows, or `/etc/machine-id` on Unix). This machine ID, combined with an optional user passphrase, is salted (SHA-256) and passed through **PBKDF2-HMAC with 200,000 iterations** to generate a secure 32-byte (256-bit) encryption key, ensuring local privacy without hardcoded secrets.
 
 ---
 
