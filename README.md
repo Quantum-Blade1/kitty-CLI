@@ -64,5 +64,5 @@ kitty setup
 
 We welcome contributors! Please review our [Developer Guide](ABOUT.md#5-developer--contributor-guide) to understand the project structure and setup instructions.
 
-## 📄 License
+## License
 MIT License. Created with by Krish and the KittyCode open-source community.
